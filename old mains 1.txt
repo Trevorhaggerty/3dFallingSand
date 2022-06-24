@@ -1,0 +1,831 @@
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+
+
+#include <iostream>
+#include <string>
+#include <limits>
+#include <algorithm>    
+#include <vector>               
+#include <cstdlib>     
+#include <chrono>
+#include <thread>
+#include <cmath>
+
+using std::string;
+using std::cout;
+using std::endl;
+
+const double PI = std::atan(1.0) * 4;
+
+
+// settings
+const unsigned int SCR_WIDTH = 800;
+const unsigned int SCR_HEIGHT = 600;
+
+
+
+int randomInt(int i) { return std::rand() % i; }
+
+int rDim = 30;
+const int RDIM = 30;
+const int SEED = 0;
+const float INF = std::numeric_limits<float>::infinity();
+
+
+struct loc3d {
+    loc3d(int xn, int yn, int zn) { x = xn; y = yn; z = zn; };
+    int x;
+    int y;
+    int z;
+    loc3d operator +(loc3d& obj) {
+        loc3d result(0, 0, 0);
+        result.x = this->x + obj.x;
+        result.y = this->y + obj.y;
+        result.z = this->z + obj.z;
+        return (result); //return object
+    };
+    loc3d operator -(loc3d& obj) {
+        loc3d result(0, 0, 0);
+        result.x = this->x - obj.x;
+        result.y = this->y - obj.y;
+        result.z = this->z - obj.z;
+        return (result); //return object
+    };
+    loc3d operator * (loc3d& obj) {
+        loc3d result(0, 0, 0);
+        result.x = this->x * obj.x;
+        result.y = this->y * obj.y;
+        result.z = this->z * obj.z;
+        return (result); //return object
+    };
+    loc3d operator / (loc3d& obj) {
+        loc3d result(0, 0, 0);
+        result.x = this->x / obj.x;
+        result.y = this->y / obj.y;
+        result.z = this->z / obj.z;
+        return (result); //return object
+    };
+
+    int mag() {
+        int result = 0;
+        result += abs(x);
+        result += abs(y);
+        result += abs(z);
+        return result;
+    }
+};
+
+loc3d indexToCoord(int index, int dim);
+
+std::ostream& operator<<(std::ostream& s, const loc3d& loc3d) {
+    return s << "(" << loc3d.x << ", " << loc3d.y << ", " << loc3d.z << ")";
+};
+
+
+
+struct loc2d {
+    loc2d(float xn, float yn) { x = xn; y = yn; };
+    float x;
+    float y;
+    loc2d operator +(loc2d& obj) {
+        loc2d result(0.0f, 0.0f);
+        result.x = this->x + obj.x;
+        result.y = this->y + obj.y;
+        return (result); //return object
+    };
+    loc2d operator -(loc2d& obj) {
+        loc2d result(0.0f, 0.0f);
+        result.x = this->x - obj.x;
+        result.y = this->y - obj.y;
+        return (result); //return object
+    };
+    loc2d operator * (loc2d& obj) {
+        loc2d result(0.0f, 0.0f);
+        result.x = this->x * obj.x;
+        result.y = this->y * obj.y;
+        return (result); //return object
+    };
+    loc2d operator / (loc2d& obj) {
+        loc2d result(0.0f, 0.0f);
+        result.x = this->x / obj.x;
+        result.y = this->y / obj.y;
+        return (result); //return object
+    };
+
+};
+
+loc2d collapseZ(loc3d);
+
+
+std::ostream& operator<<(std::ostream& s, const loc2d& loc2d) {
+    return s << "(" << loc2d.x << ", " << loc2d.y << ")";
+};
+
+struct substance {
+
+    substance(string n, substance* ls, substance* hs, float l, float h, float c[3], float d, string s) {
+        name = n;
+        hiSub = hs;
+        loSub = ls;
+        hiThresh = h;
+        loThresh = l;
+        std::copy(c, c + 3, color);
+        density = d;
+        state = s;
+    };
+    string name;
+
+    //substances that it transforms to from temperature change
+    substance* hiSub;
+    substance* loSub;
+
+    //the temperatures that cause change
+    float hiThresh;
+    float loThresh;
+
+    //the color of the substance
+    float color[4];
+
+    //this determines priority motion for particles
+    float density;
+
+    //this determines the gradient that is available for movement
+    string state;
+};
+
+
+
+struct voxel {
+    voxel(substance* sub, float t, bool s) {
+        substance = sub;
+        temperature = t;
+        settled = s;
+        settle_timer = 0;
+    }
+    voxel() {
+        substance = NULL;
+        temperature = INF;
+        settled = true;
+        settle_timer = 0;
+    }
+
+
+    void checkTemp() {
+        if (temperature < substance->loThresh) {
+            substance = substance->loSub;
+        }
+        if (temperature > substance->hiThresh) {
+            substance = substance->hiSub;
+        }
+    }
+    void checkSettle(bool moved) {
+        if (moved) {
+            settle_timer++;
+
+        }
+        else {
+            settle_timer = 0;
+        }
+        if (settle_timer == 5) {
+            settled = true;
+        }
+    }
+    void operator = (const voxel& v) {
+
+        substance = v.substance;
+        temperature = v.temperature;
+        settled = v.settled;
+
+    };
+
+
+    substance* substance;
+    float temperature;
+    bool settled;
+    int settle_timer;
+
+
+};
+
+class region {
+
+public:
+    region();
+
+private:
+
+    voxel voxels[RDIM][RDIM][RDIM];
+
+public:
+    voxel getVoxel(int x, int y, int z) { return voxels[x][y][z]; };
+    void DrawVoxels(float verts[]);
+   // void UpdateNeighbors();
+    void Simulate();
+    void Insert(voxel v, int x, int y, int z) { voxels[x][y][z] = v; };
+    ~region();
+};
+
+
+float basecolor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+float sandcol[] = { 0.50f, 0.50f, 0.0f, 0.0f };
+float watercol[] = { 0.0f, 0.0f, 0.50f, 0.0f };
+
+substance* air = new substance("air", NULL, NULL, -INF, INF, basecolor, 0.001f, "gas");
+substance* sand = new substance("sand", NULL, NULL, -INF, 0.0f, sandcol, 1.5f, "powder");
+
+substance* steam = new substance("steam", NULL, NULL, 100.0f, INF, basecolor, 0.0005f, "gas");
+substance* water = new substance("water", NULL, steam, 0.0f, 100.0f, watercol, 1.0f, "liquid");
+substance* ice = new substance("ice", NULL, water, -INF, 0.0f, basecolor, 0.9f, "solid");
+
+
+
+
+
+
+
+
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+int processInput(GLFWwindow* window, loc3d &gameCursor);
+
+
+
+const char* vertexShaderSource = "#version 330 core\n"
+"layout (location = 0) in vec3 aPos;\n"
+"layout (location = 1) in vec3 aColor;\n"
+"out vec3 ourColor;\n"
+"void main()\n"
+"{\n"
+"   gl_Position = vec4(aPos, 1.0);\n"
+"   ourColor = aColor;\n"
+"}\0";
+
+const char* fragmentShaderSource = "#version 330 core\n"
+"out vec4 FragColor;\n"
+"in vec3 ourColor;\n"
+"void main()\n"
+"{\n"
+"   FragColor = vec4(ourColor, 1.0f);\n"
+"}\n\0";
+
+
+//voxels here
+
+
+
+
+
+
+
+
+
+
+
+
+int screen_width, screen_height;
+loc3d gameCursor = {0,0,0};
+
+
+int main()
+{
+
+    // glfw: initialize and configure
+    // ------------------------------
+    
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+#ifdef __APPLE__
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+#endif
+
+    // glfw window creation
+    // --------------------
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+    if (window == NULL)
+    {
+        std::cout << "Failed to create GLFW window" << std::endl;
+        glfwTerminate();
+        return -1;
+    }
+    
+
+    
+    glfwMakeContextCurrent(window);
+    
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+    // glad: load all OpenGL function pointers
+    // ---------------------------------------
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        std::cout << "Failed to initialize GLAD" << std::endl;
+        return -1;
+    }
+
+    // build and compile our shader program
+    // ------------------------------------
+    // vertex shader
+    unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+    glCompileShader(vertexShader);
+
+    // check for shader compile errors
+    int success;
+    char infoLog[512];
+    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+    if (!success)
+    {
+        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+        std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
+    }
+
+    // fragment shader
+    unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+    glCompileShader(fragmentShader);
+
+    // check for shader compile errors
+    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+    if (!success)
+    {
+        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
+        std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
+    }
+    // link shaders
+    unsigned int shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+    // check for linking errors
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+    if (!success) {
+        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+        std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
+    }
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    // set up vertex data (and buffer(s)) and configure vertex attributes
+    // ------------------------------------------------------------------
+    float vertices[76800] = {
+        // positions   // colors
+         0.0f, -0.0f,  0.0f, 0.0f, 0.0f, 
+
+    };
+
+
+
+
+    std::srand(SEED);
+    steam->loSub = water;
+    water->loSub = ice;
+
+    region A;
+
+   
+    unsigned int VBO, VAO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+    glBindVertexArray(VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+   
+   
+
+    
+    // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+    // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+    // glBindVertexArray(0);
+
+    // as we only have a single shader, we could also just activate our shader once beforehand if we want to 
+    glUseProgram(shaderProgram);
+
+    int timeVar = 0;
+    int state = 0;
+    // render loop
+
+
+
+
+
+    while (!glfwWindowShouldClose(window))
+    {
+        // input
+        state = processInput(window, gameCursor);
+        timeVar++;
+
+        //update the vertices here
+        
+        A.Simulate();
+        A.DrawVoxels(vertices);
+       
+        if (state == 1) {
+            A.Insert(voxel(sand, 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
+        }
+        if (state == 2) {
+            A.Insert(voxel(water, 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
+        }
+        if (state == 3) {
+            A.Insert(voxel(air, 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
+        }
+        int maxIndex = *(&vertices) - vertices;
+        
+        cout << gameCursor;
+
+
+
+        //if (timeVar % 20 == 0 && timeVar < 10000) {
+        //    A.Insert(voxel(water, 75.0f, false), randomInt(rDim), rDim - 1, randomInt(rDim));
+        //}
+
+
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+        // position attribute
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(0);
+        // color attribute
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(2 * sizeof(float)));
+        glEnableVertexAttribArray(1);
+
+
+
+        // render
+        // ------
+        glClearColor(0.0f, 0.0f, 0.0f, 0.5f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        glfwGetWindowSize(window,&screen_width,&screen_height);
+        glPointSize(screen_width * screen_height / 120000);
+
+        // render the triangle
+        glBindVertexArray(VAO);
+        glDrawArrays(GL_POINTS, 0, 120000);
+
+        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
+        // -------------------------------------------------------------------------------
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+
+    // optional: de-allocate all resources once they've outlived their purpose:
+    // ------------------------------------------------------------------------
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glDeleteProgram(shaderProgram);
+
+    // glfw: terminate, clearing all previously allocated GLFW resources.
+    // ------------------------------------------------------------------
+    glfwTerminate();
+    return 0;
+}
+
+// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
+// ---------------------------------------------------------------------------------------------------------
+int processInput(GLFWwindow* window, loc3d &gameCursor)
+{
+    int result = 0;
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        result = 1;
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        result = 2;
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        result = 3;
+    if (glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS)
+        if (gameCursor.y > 0 )
+            gameCursor.y--;
+    if (glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS)
+        if (gameCursor.y < rDim - 1)
+            gameCursor.y++;
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+        if (gameCursor.z > 0)
+            gameCursor.z--;
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+        if (gameCursor.z < rDim - 1)
+            gameCursor.z++;
+    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+        if (gameCursor.x > 0)
+            gameCursor.x--;
+    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+        if (gameCursor.x < rDim - 1)
+            gameCursor.x++;
+    return result;
+}
+
+// glfw: whenever the window size changed (by OS or user resize) this callback function executes
+// ---------------------------------------------------------------------------------------------
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+    // make sure the viewport matches the new window dimensions; note that width and 
+    // height will be significantly larger than specified on retina displays.
+    glViewport(0, 0, width, height);
+}
+
+
+
+loc3d indexToCoord(int index, int dim) {
+    loc3d result(0, 0, 0);
+
+    result.x = index / (dim * dim);
+    result.y = (index / dim) % dim;
+    result.z = index % dim;
+
+    return result;
+}
+
+loc2d collapseZ(loc3d cube) {
+    loc2d result(0, 0);
+
+    result.x = (float)(cube.x - cube.z);
+    result.y = (float)(cube.y) - (cube.x + cube.z) / 2.0f;
+
+    return result;
+};
+
+
+region::region() {
+
+    voxel airVox(air, 75.0f, true);
+    for (int i = 0; i < RDIM; i++) {
+        for (int j = 0; j < RDIM; j++) {
+            for (int k = 0; k < RDIM; k++) {
+                voxels[i][j][k] = airVox;
+            }
+        }
+    }
+
+};
+
+
+void region::Simulate() {
+    bool checking = true;
+    int choice = 0;
+
+    bool moved = false;
+
+    bool posxlim = false;
+    bool negxlim = false;
+    bool poszlim = false;
+    bool negzlim = false;
+
+    loc3d cursor(0, 0, 0);
+
+    std::vector<loc3d> unsettled;
+    std::vector<loc3d> available;
+
+    unsettled.clear();
+    unsettled.shrink_to_fit();
+
+    for (int x = 0; x < RDIM; x++) {
+        for (int y = 0; y < RDIM; y++) {
+            for (int z = 0; z < RDIM; z++) {
+                if (voxels[x][y][z].settled == false) {
+                    unsettled.push_back(loc3d(x, y, z));
+                }
+            }
+        }
+    }
+    
+
+    std::random_shuffle(unsettled.begin(), unsettled.end(), randomInt);
+
+    for (std::vector<loc3d>::iterator it = unsettled.begin(); it != unsettled.end(); ++it) {
+        //cout << *it;
+
+        moved = false;
+
+        if (voxels[it->x][it->y][it->z].substance->state == "powder"
+            || voxels[it->x][it->y][it->z].substance->state == "liquid") {
+            if (it->y > 0) {
+
+                if (voxels[it->x][it->y][it->z].substance->density > voxels[it->x][it->y - 1][it->z].substance->density) {
+                    voxels[it->x][it->y - 1][it->z].settled = false;
+                    std::swap(voxels[it->x][it->y][it->z], voxels[it->x][it->y - 1][it->z]);
+                    moved = true;
+                }
+                else {
+                    available.clear();
+                    available.shrink_to_fit();
+
+                    negxlim = (it->x == 0);
+                    posxlim = (it->x == rDim - 1);
+                    negzlim = (it->z == 0);
+                    poszlim = (it->z == rDim - 1);
+
+                    //loop through the bottom 9 (clipping based on edges)
+                    if (!negxlim && !negzlim) {
+                        if (voxels[it->x][it->y][it->z].substance->density > voxels[it->x - 1][it->y - 1][it->z - 1].substance->density) {
+                            available.push_back(loc3d(it->x - 1, it->y - 1, it->z - 1));
+                        }
+                    }
+                    if (!negxlim) {
+                        if (voxels[it->x][it->y][it->z].substance->density > voxels[it->x - 1][it->y - 1][it->z].substance->density) {
+                            available.push_back(loc3d(it->x - 1, it->y - 1, it->z));
+                        }
+                    }
+                    if (!negxlim && !poszlim) {
+                        if (voxels[it->x][it->y][it->z].substance->density > voxels[it->x - 1][it->y - 1][it->z + 1].substance->density) {
+                            available.push_back(loc3d(it->x - 1, it->y - 1, it->z + 1));
+                        }
+                    }
+
+                    if (!posxlim && !negzlim) {
+                        if (voxels[it->x][it->y][it->z].substance->density > voxels[it->x + 1][it->y - 1][it->z - 1].substance->density) {
+                            available.push_back(loc3d(it->x + 1, it->y - 1, it->z - 1));
+                        }
+                    }
+                    if (!posxlim) {
+                        if (voxels[it->x][it->y][it->z].substance->density > voxels[it->x + 1][it->y - 1][it->z].substance->density) {
+                            available.push_back(loc3d(it->x + 1, it->y - 1, it->z));
+                        }
+                    }
+                    if (!posxlim && !poszlim) {
+                        if (voxels[it->x][it->y][it->z].substance->density > voxels[it->x + 1][it->y - 1][it->z + 1].substance->density) {
+                            available.push_back(loc3d(it->x + 1, it->y - 1, it->z + 1));
+                        }
+                    }
+                    if (!negzlim) {
+                        if (voxels[it->x][it->y][it->z].substance->density > voxels[it->x][it->y - 1][it->z - 1].substance->density) {
+                            available.push_back(loc3d(it->x, it->y - 1, it->z - 1));
+                        }
+                    }
+                    if (!poszlim) {
+                        if (voxels[it->x][it->y][it->z].substance->density > voxels[it->x][it->y - 1][it->z + 1].substance->density) {
+                            available.push_back(loc3d(it->x, it->y - 1, it->z + 1));
+                        }
+                    }
+
+                    if (available.size() == 0 && voxels[it->x][it->y][it->z].substance->state == "liquid") {
+                        if (!negxlim && !negzlim) {
+                            if (voxels[it->x][it->y][it->z].substance->density > voxels[it->x - 1][it->y][it->z - 1].substance->density) {
+                                available.push_back(loc3d(it->x - 1, it->y, it->z - 1));
+                            }
+                        }
+                        if (!negxlim) {
+                            if (voxels[it->x][it->y][it->z].substance->density > voxels[it->x - 1][it->y][it->z].substance->density) {
+                                available.push_back(loc3d(it->x - 1, it->y, it->z));
+                            }
+                        }
+                        if (!negxlim && !poszlim) {
+                            if (voxels[it->x][it->y][it->z].substance->density > voxels[it->x - 1][it->y][it->z + 1].substance->density) {
+                                available.push_back(loc3d(it->x - 1, it->y, it->z + 1));
+                            }
+                        }
+
+                        if (!posxlim && !negzlim) {
+                            if (voxels[it->x][it->y][it->z].substance->density > voxels[it->x + 1][it->y][it->z - 1].substance->density) {
+                                available.push_back(loc3d(it->x + 1, it->y, it->z - 1));
+                            }
+                        }
+                        if (!posxlim) {
+                            if (voxels[it->x][it->y][it->z].substance->density > voxels[it->x + 1][it->y][it->z].substance->density) {
+                                available.push_back(loc3d(it->x + 1, it->y, it->z));
+                            }
+                        }
+                        if (!posxlim && !poszlim) {
+                            if (voxels[it->x][it->y][it->z].substance->density > voxels[it->x + 1][it->y][it->z + 1].substance->density) {
+                                available.push_back(loc3d(it->x + 1, it->y, it->z + 1));
+                            }
+                        }
+                        if (!negzlim) {
+                            if (voxels[it->x][it->y][it->z].substance->density > voxels[it->x][it->y][it->z - 1].substance->density) {
+                                available.push_back(loc3d(it->x, it->y, it->z - 1));
+                            }
+                        }
+                        if (!poszlim) {
+                            if (voxels[it->x][it->y][it->z].substance->density > voxels[it->x][it->y][it->z + 1].substance->density) {
+                                available.push_back(loc3d(it->x, it->y, it->z + 1));
+                            }
+                        }
+                    }
+                    if (available.size() != 0) {
+                        std::random_shuffle(available.begin(), available.end(), randomInt);
+                        cursor = available.front();
+                        std::swap(voxels[it->x][it->y][it->z], voxels[cursor.x][cursor.y][cursor.z]);
+                        moved = true;
+                        voxels[cursor.x][cursor.y][cursor.z].settled = false;
+                    }
+
+                }
+            }
+        }
+        voxels[it->x][it->y][it->z].checkSettle(moved);
+    }
+
+};
+
+void region::DrawVoxels(float verts[]) {
+
+    loc3d cursor(0, 0, 0);
+    loc2d cursor2(0, 0);
+
+    int indexMax = rDim - 1;
+    int currentShell = 0;
+    int currentIndex = 0;
+
+    float heightMod;
+
+
+    while (indexMax >= currentShell) {
+        cursor.y = currentShell;
+        for (int x = 0; x <= currentShell; x++) {
+            for (int z = 0; z <= currentShell; z++) {
+                cursor.x = x;
+                cursor.z = z;
+                if (voxels[x][cursor.y][z].substance->name != "air") {
+                    cursor2 = collapseZ(cursor);
+                    
+                    heightMod = 1.0f - cos(PI * cursor.y / rDim) / 2;
+
+                    verts[currentIndex] = (float)((cursor2.x) / (SCR_WIDTH/8));
+                    
+                    currentIndex++;
+                    verts[currentIndex] = (float)((cursor2.y) / (SCR_HEIGHT/8));
+                   
+                    currentIndex++;
+                    verts[currentIndex] = (voxels[x][cursor.y][z].substance->color[0] * heightMod);
+                    
+                    currentIndex++;
+                    verts[currentIndex] = (voxels[x][cursor.y][z].substance->color[1] * heightMod);
+                    
+                    currentIndex++;
+                    verts[currentIndex] = (voxels[x][cursor.y][z].substance->color[2] * heightMod);
+
+                    currentIndex++;
+                }
+
+            }
+        }
+        cursor.x = currentShell;
+        for (int y = 0; y <= currentShell - 1; y++) {
+            for (int z = 0; z <= currentShell; z++) {
+                cursor.y = y;
+                cursor.z = z;
+                if (voxels[cursor.x][y][z].substance->name != "air") {
+                    cursor2 = collapseZ(cursor);
+
+                    heightMod = 1.0f - cos(PI * y / rDim) / 2;
+                    verts[currentIndex] = (float)((cursor2.x) / (SCR_WIDTH / 8));
+
+                    currentIndex++;
+                    verts[currentIndex] = (float)((cursor2.y) / (SCR_HEIGHT / 8));
+
+                    currentIndex++;
+                    verts[currentIndex] = (voxels[cursor.x][y][z].substance->color[0] * heightMod);
+
+                    currentIndex++;
+                    verts[currentIndex] = (voxels[cursor.x][y][z].substance->color[1] * heightMod);
+
+                    currentIndex++;
+                    verts[currentIndex] = (voxels[cursor.x][y][z].substance->color[2] * heightMod);
+
+                    currentIndex++;
+                }
+            }
+        }
+        cursor.z = currentShell;
+        for (int y = 0; y <= currentShell - 1; y++) {
+            for (int x = 0; x <= currentShell - 1; x++) {
+                cursor.y = y;
+                cursor.x = x;
+                if (voxels[x][y][cursor.z].substance->name != "air") {
+                    cursor2 = collapseZ(cursor);
+
+                    heightMod = 1.0f - cos( PI * y / rDim) / 2;
+
+                    verts[currentIndex] = (float)((cursor2.x) / (SCR_WIDTH / 8));
+
+                    currentIndex++;
+                    verts[currentIndex] = (float)((cursor2.y) / (SCR_HEIGHT / 8));
+
+                    currentIndex++;
+                    verts[currentIndex] = (voxels[x][y][cursor.z].substance->color[0] * heightMod);
+
+                    currentIndex++;
+                    verts[currentIndex] = (voxels[x][y][cursor.z].substance->color[1] * heightMod);
+
+                    currentIndex++;
+                    verts[currentIndex] = (voxels[x][y][cursor.z].substance->color[2] * heightMod);
+
+                    currentIndex++;
+                }
+            }
+        }
+        currentShell++;
+        
+    }
+ 
+};
+
+region::~region() {
+    
+
+}
+

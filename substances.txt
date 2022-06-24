@@ -1,0 +1,8 @@
+version 0.0.1.1
+name,lo phase,hi phase, lo temp, hi temp, {color}, density, current phase
+--------------------------------------------------------------------------
+"air", NULL, NULL, -INF, INF, { 0.0f, 0.0f, 0.0f, 0.0f }, 0.001f, "gas"
+"sand", NULL, NULL, -INF, 0.0f, { 0.0f, 0.0f, 0.0f, 0.0f }, 1.5f, "powder"
+"water", ice, steam, 0.0f, 100.0f, { 0.0f, 0.0f, 0.0f, 0.0f }, 1.0f, "liquid"
+"steam", water, NULL, 100.0f, INF, { 0.0f, 0.0f, 0.0f, 0.0f }, 0.0005f, "gas"
+"ice", NULL, water, -INF, 0.0f, { 0.0f, 0.0f, 0.0f, 0.0f }, 0.9f, "solid"
