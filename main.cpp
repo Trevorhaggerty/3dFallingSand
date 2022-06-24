@@ -1,26 +1,34 @@
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
+/*
 
+Un-named Falling Voxel game
+---------------------------
+written by Trevor Haggerty
+Version 0.0.1.1
+*/
+
+//includes
 #include "includes.h"
+//local headers
+#include "voxfuncs.h"
 #include "substance.h"
-
 #include "gamemem.h"
 #include "world.h"
 #include "voxels.h"
-#include "voxfuncs.h"
-
 #include "chunk.h"
 
-
-
+//namespaces
 using namespace Game;
 
-
-
+//TODO MOVE COLORS TO SHADER
+//colors to be used
 float basecolor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
 float sandcol[] = { 0.50f, 0.50f, 0.0f, 0.0f };
 float watercol[] = { 0.0f, 0.0f, 0.50f, 0.0f };
 
+
+//TODO MAKE DICTIONARY TO HOLD SUBSTANCES
+//Substances for voxel manipulation and representation
+// (name, lo phase, hi phase, lo temp, hi temp, color, density, current phase)
 substance* air = new substance("air", NULL, NULL, -INF, INF, basecolor, 0.001f, "gas");
 substance* sand = new substance("snd", NULL, NULL, -INF, 0.0f, sandcol, 1.5f, "powder");
 
@@ -33,10 +41,12 @@ substance* water = new substance("wtr", ice, steam, 0.0f, 100.0f, watercol, 1.0f
 
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+
 int processInput(GLFWwindow* window, loc3d &gameCursor);
 
 
-
+//TODO MOVE SHADERS TO SEPERATE FILE
+//shaders
 const char* vertexShaderSource = "#version 330 core\n"
 "layout (location = 0) in vec3 aPos;\n"
 "layout (location = 1) in vec3 aColor;\n"
@@ -56,19 +66,14 @@ const char* fragmentShaderSource = "#version 330 core\n"
 "}\n\0";
 
 
-//voxels here
 
-
-
-
-
-
-
+//which save file to use
 int gameNum = createNewSave();
 
-
-
+// ints to hold current screen size
 int screen_width, screen_height;
+
+//location of player cursor
 loc3d gameCursor = {0,0,0};
 
 
@@ -83,9 +88,6 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-#ifdef __APPLE__
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-#endif
 
     // glfw window creation
     // --------------------
@@ -219,7 +221,7 @@ int main()
             A.Insert(voxel(air, 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
         }
         if (state == 4) {
-            string loc = "Saves/" + std::to_string(gameNum) + "/chunks/";
+            std::string loc = "Saves/" + std::to_string(gameNum) + "/chunks/";
             A.Save(loc, 0, 0, 0);
         }
         int maxIndex = *(&vertices) - vertices;

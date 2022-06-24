@@ -286,7 +286,7 @@ namespace Game {
     };
 
 
-    void chunk::Save(string saveloc, int x, int y, int z) {
+    void chunk::Save(std::string saveloc, int x, int y, int z) {
     
         saveloc = saveloc + std::to_string(x) + "," + std::to_string(y) + "," + std::to_string(z) + ".chunk";
             std::fstream chunkFile(saveloc, std::ios::out|std::ios::trunc);
@@ -297,9 +297,9 @@ namespace Game {
                         for (int z = 0; z < 12; z++) {
                             chunkFile << voxels[x][y][z];
                         }
-                        chunkFile << endl;
+                        chunkFile << std::endl;
                     }
-                chunkFile << endl;
+                chunkFile << std::endl;
                 }
                             
                  
@@ -308,7 +308,7 @@ namespace Game {
             }
 
     };
-    void chunk::Load(string loadloc, int x, int y, int z) {
+    void chunk::Load(std::string loadloc, int x, int y, int z) {
     
         loadloc = loadloc + std::to_string(x) + "," + std::to_string(y) + "," + std::to_string(z) + ".chunk";
         std::fstream chunkFile(loadloc, std::ios::in | std::ios::binary);

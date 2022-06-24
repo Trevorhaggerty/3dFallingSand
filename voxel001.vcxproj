@@ -163,7 +163,6 @@
     <ClInclude Include="chunk.h" />
     <ClInclude Include="gamemem.h" />
     <ClInclude Include="includes.h" />
-    <ClInclude Include="resource.h" />
     <ClInclude Include="substance.h" />
     <ClInclude Include="voxels.h" />
     <ClInclude Include="voxfuncs.h" />

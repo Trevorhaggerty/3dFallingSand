@@ -5,7 +5,7 @@
 
 namespace Game {
     // MAJOR_RELEASE.MINOR_RELEASE.RELEASE.BUILD
-    string version = "0.0.1.1";
+    std::string version = "0.0.1.1";
     
     int createNewSave() {
 
@@ -16,16 +16,16 @@ namespace Game {
         while (saving) {
 
             //create save folder
-            string location = "mkdir \Saves\\" + std::to_string(saveNum);
+            std::string location = "mkdir \Saves\\" + std::to_string(saveNum);
             if (std::system(location.c_str()) == false) {
 
                 //populate save folder
                 //header
-                string headerloc = "Saves/" + std::to_string(saveNum) + "/header.dat";
+                std::string headerloc = "Saves/" + std::to_string(saveNum) + "/header.dat";
                 std::ofstream header(headerloc);
                 if (header.is_open()) {
 
-                    header << "VERSION " << version << endl;
+                    header << "VERSION " << version << std::endl;
 
                     header.close();
                 }

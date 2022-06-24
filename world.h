@@ -11,11 +11,11 @@ namespace Game
 	public:
 		world() { ; };
 	private:
-		string name;
+		std::string name;
 
 	public:
-		void SetName(string n) { name = n; };
-		void SayName() { cout << name << endl; };
+		void SetName(std::string n) { name = n; };
+		void SayName() { std::cout << name << std::endl; };
 
 	};
 

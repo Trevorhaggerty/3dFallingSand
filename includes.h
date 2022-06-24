@@ -1,40 +1,41 @@
 #pragma once
 
+
+//Includes
 #include <iostream>
+
+//opengl
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+
+//array manipulation and such
 #include <queue>
 #include <vector>
 #include <string>
-#include <limits>
 #include <algorithm>                  
-#include <cstdlib>     
+
 #include <chrono>
-#include <thread>
+
+//math libraries
+#include <limits>
+#include <cstdlib>     
 #include <cmath>
+
+//file and data manipulation and saving
+#include <thread>
 #include <fstream>
 
 
 
 
-using std::string;
-using std::cout;
-using std::endl;
-
-
+//MAGIC NUMBERS
+//infinity for floats 
 const float INF = std::numeric_limits<float>::infinity();
-
-
 const double PI = std::atan(1.0) * 4;
 
-// settings
+// SETTINGS
+//screen size
 const unsigned int SCR_WIDTH = 512;
 const unsigned int SCR_HEIGHT = 448;
-
-
-
-
+//seed data
 const int SEED = 0;
-
-
-

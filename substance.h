@@ -6,7 +6,7 @@ namespace Game
 {
     struct substance {
 
-        substance(string n, substance* ls, substance* hs, float l, float h, float c[3], float d, string s) {
+        substance(std::string n, substance* ls, substance* hs, float l, float h, float c[3], float d, std::string s) {
             name = n;
             hiSub = hs;
             loSub = ls;
@@ -16,7 +16,7 @@ namespace Game
             density = d;
             state = s;
         };
-        string name;
+        std::string name;
 
         //substances that it transforms to from temperature change
         substance* hiSub;
@@ -33,7 +33,7 @@ namespace Game
         float density;
 
         //this determines the gradient that is available for movement
-        string state;
+        std::string state;
 
         friend std::ostream& operator<<(std::ostream& out, const substance& s);
     };
