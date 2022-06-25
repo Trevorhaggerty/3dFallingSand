@@ -5,6 +5,7 @@ namespace Game
 {
 
     struct loc2d {
+        loc2d() { x = 0; y = 0; };
         loc2d(float xn, float yn) { x = xn; y = yn; };
         float x;
         float y;
@@ -40,6 +41,7 @@ namespace Game
     };
 
     struct loc3d {
+        loc3d() { x = 0; y = 0; z = 0; };
         loc3d(int xn, int yn, int zn) { x = xn; y = yn; z = zn; };
         int x;
         int y;

@@ -5,7 +5,17 @@
 namespace Game
 {
     struct substance {
-
+        substance() {
+            name = "";
+            hiSub = NULL;
+            loSub = NULL;
+            hiThresh = -INF;
+            loThresh = INF;
+            float c[3] = { 0.0f,0.0f,0.0f };
+            std::copy(c, c + 3, color);
+            density = 0;
+            state = "";
+        };
         substance(std::string n, substance* ls, substance* hs, float l, float h, float c[3], float d, std::string s) {
             name = n;
             hiSub = hs;

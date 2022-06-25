@@ -153,6 +153,7 @@
   <ItemGroup>
     <ClCompile Include="gamemem.cpp" />
     <ClCompile Include="glad.c" />
+    <ClCompile Include="logger.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="chunk.cpp" />
     <ClCompile Include="substance.cpp" />
@@ -162,6 +163,7 @@
   <ItemGroup>
     <ClInclude Include="chunk.h" />
     <ClInclude Include="gamemem.h" />
+    <ClInclude Include="logger.h" />
     <ClInclude Include="includes.h" />
     <ClInclude Include="substance.h" />
     <ClInclude Include="voxels.h" />

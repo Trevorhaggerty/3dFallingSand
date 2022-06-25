@@ -15,15 +15,26 @@ Version 0.0.1.1
 #include "world.h"
 #include "voxels.h"
 #include "chunk.h"
+#include "logger.h"
 
 //namespaces
 using namespace Game;
+using namespace logspace;
+
+//logging object
+Logger logger("Global");
+
+
+
+int logTrash;
+
 
 //TODO MOVE COLORS TO SHADER
 //colors to be used
 float basecolor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
 float sandcol[] = { 0.50f, 0.50f, 0.0f, 0.0f };
 float watercol[] = { 0.0f, 0.0f, 0.50f, 0.0f };
+
 
 
 //TODO MAKE DICTIONARY TO HOLD SUBSTANCES
@@ -35,7 +46,6 @@ substance* sand = new substance("snd", NULL, NULL, -INF, 0.0f, sandcol, 1.5f, "p
 substance* steam = new substance("stm", NULL, NULL, 100.0f, INF, basecolor, 0.0005f, "gas");
 substance* ice = new substance("ice", NULL, NULL, -INF, 0.0f, basecolor, 0.9f, "solid");
 substance* water = new substance("wtr", ice, steam, 0.0f, 100.0f, watercol, 1.0f, "liquid");
-
 
 
 
@@ -67,22 +77,34 @@ const char* fragmentShaderSource = "#version 330 core\n"
 
 
 
-//which save file to use
-int gameNum = createNewSave();
-
-// ints to hold current screen size
-int screen_width, screen_height;
-
-//location of player cursor
-loc3d gameCursor = {0,0,0};
-
-
 int main()
-{
+{   
+    logger.log(1, "PRGM START", "main func started");
+    logger.updateLocation("Main");
+
+    //which save file to use
+    int gameNum = 0;
+    //gameNum = createNewSave();
+    logger.log(1, "NEW SAVE", "save located at " + std::to_string(gameNum));
+
+    // ints to hold current screen size
+    int screen_width, screen_height;
+
+    //location of player cursor
+    loc3d gameCursor = {0,0,0};
+    logger.log(1, "CURSOR MADE", "size of obj " + std::to_string(sizeof(gameCursor)) + " bytes");
+
+    substance substances[255];
+    substances[0] = substance("air", NULL, NULL, -INF, INF, basecolor, 0, "gas");
+    substances[1] = substance("snd", NULL, NULL, -INF, 0.0f, sandcol, 1.5f, "powder");
+    substances[2] = substance("wtr", ice, steam, 0.0f, 100.0f, watercol, 1.0f, "liquid");
+    
+    logger.log(1, "SUBSTS MADE", "size of obj " + std::to_string(sizeof(substances)) + " bytes");
 
     // glfw: initialize and configure
     // ------------------------------
     
+    logger.log(1, "CREATING WINDOW", " version 3.3 glfw window");
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -91,31 +113,34 @@ int main()
 
     // glfw window creation
     // --------------------
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Falling Voxels", NULL, NULL);
     if (window == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
         return -1;
     }
+    else {
+        logger.log(1, "WINDOW CREATED", std::to_string(SCR_WIDTH)+"X"+ std::to_string(SCR_HEIGHT));
+    }
     
 
     
     glfwMakeContextCurrent(window);
-    
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
     // glad: load all OpenGL function pointers
-    // ---------------------------------------
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
+    else {
+        logger.log(1, "INIT GLAD", "glad loaded");
+    }
 
-    // build and compile our shader program
-    // ------------------------------------
-    // vertex shader
+    //build shaders
+    logger.log(1, "BUILDING VERT SHADER", "...");
     unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
     glCompileShader(vertexShader);
@@ -129,8 +154,15 @@ int main()
         glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
         std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
     }
-
+    else {
+        logger.log(1, "VERT SHADER BUILT", "vertex shader compiling complete");
+    }
+    
+    
     // fragment shader
+    // may go un-used and cut later on
+    logger.log(1, "BUILDING FRAG SHADER", "compiling fragment shader");
+
     unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
     glCompileShader(fragmentShader);
@@ -142,123 +174,193 @@ int main()
         glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
         std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
     }
+    else {
+        logger.log(1, "FRAG SHADER BUILT", "fragment shader compiling complete");
+    }
+    
+    logger.log(1, "LINKING SHADERS", "...");
     // link shaders
     unsigned int shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);
     glLinkProgram(shaderProgram);
+    
     // check for linking errors
     glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
     if (!success) {
         glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
         std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
     }
+    else {
+        logger.log(1, "SHADERS LINKED", "vertex and fragment shaders linked");
+    }
+
+    //cleanup
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    // set up vertex data (and buffer(s)) and configure vertex attributes
-    // ------------------------------------------------------------------
-    float vertices[7680] = {
-        // positions   // colors
-         0.0f, -0.0f,  0.0f, 0.0f, 0.0f, 
+    //vertices that will be drawn to screen
+    //TODO ABSTRACT THE COLORS FOR VERTEX SHADER, WILL POTENTIALLY REDUCE VERTICES ARRAY SIZE
+    //TODO MAKE TEXT FOR MENUS AND SUCH
+    //??TODO?? USE FRAGMENT SHADER TO CREATE EFFECTS
+    float vertices[25205];
+    //update the vertices here
+    for (auto f : vertices) {
+        f = 1.0f;
+    }
 
-    };
+    logger.log(1, "VERTICES MADE", "size of obj " + std::to_string(sizeof(vertices)) + " bytes");
 
 
-
-
+    //seed generation
     std::srand(SEED);
+    logger.log(1, "SEED SET ", "seed set to " + std::to_string(SEED));
 
 
-    chunk A;
-
-   
+    //OPENGL stuff. create the Vertex Array Objects ???
     unsigned int VBO, VAO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
-    // bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+    // bind the arrays and set settings
     glBindVertexArray(VAO);
-
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-   
-   
-
     
-    // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
-    // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
-    // glBindVertexArray(0);
-
-    // as we only have a single shader, we could also just activate our shader once beforehand if we want to 
+    //tell the program which shader program to use
     glUseProgram(shaderProgram);
 
     
+    //create a chunk
+    loc3d loc3;
+    chunk worldland[3][3][3];
+    for (int x = 0; x < 3; x++) {
+        for (int y = 0; y < 3; y++) {
+            for (int z = 0; z < 3; z++) {
+                loc3.x = x - 1;
+                loc3.y = y - 1;
+                loc3.z = z - 1;
+                worldland[x][y][z].SetLocation(loc3);
+            }
+        }
+    }
     
+    logger.log(1, "CHUNK CREATED", "size of obj " + std::to_string(sizeof(worldland)) + " bytes");
 
 
+    float frameStart = 0.0f;
+    float frameFinish = 0.0f;
+    float frameLimiter = 0.016f;
 
-
-    int timeVar = 0;
+    int vcountiter = 0;
+    int vcount = 0;
     int state = 0;
 
     while (!glfwWindowShouldClose(window))
     {
-        // input
-        state = processInput(window, gameCursor);
-        timeVar++;
-
-        //update the vertices here
-       
-        A.Simulate();
-        A.DrawVoxels(vertices);
-       
-        if (state == 1) {
-            A.Insert(voxel(sand, 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
-        }
-        if (state == 2) {
-            A.Insert(voxel(water, 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
-        }
-        if (state == 3) {
-            A.Insert(voxel(air, 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
-        }
-        if (state == 4) {
-            std::string loc = "Saves/" + std::to_string(gameNum) + "/chunks/";
-            A.Save(loc, 0, 0, 0);
-        }
-        int maxIndex = *(&vertices) - vertices;
         
-//cout << gameCursor;
+        if (frameFinish - frameStart > frameLimiter) {
+
+            vcount = 0;
+            vcountiter = 0;
+            
+            frameStart = glfwGetTime();
+
+            
+            // input
+            state = processInput(window, gameCursor);
+
+            
+            for (int x = 0; x < 3; x++) {
+                for (int y = 0; y < 3; y++) {
+                    for (int z = 0; z < 3; z++) {
+                        worldland[x][y][z].Simulate();
+                        vcountiter = worldland[x][y][z].DrawVoxels(vertices, gameCursor, vcount*5);
+                        vcount += vcountiter - 2;
+                    }
+                }
+            }
 
 
-        
+
+            if (state == 1) {
+                for (int x = 0; x < 3; x++) {
+                    for (int y = 0; y < 3; y++) {
+                        for (int z = 0; z < 3; z++) {
+                            worldland[x][y][z].Insert(new voxel(&substances[1], 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
+                       }
+                    }
+                }
+            }
+            if (state == 2) {
+                for (int x = 0; x < 3; x++) {
+                    for (int y = 0; y < 3; y++) {
+                        for (int z = 0; z < 3; z++) {
+                            worldland[x][y][z].Insert(new voxel(&substances[2], 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
+                        }
+                    }
+                }
+            }
+            if (state == 3) {
+                for (int x = 0; x < 3; x++) {
+                    for (int y = 0; y < 3; y++) {
+                        for (int z = 0; z < 3; z++) {
+                            worldland[x][y][z].Insert(new voxel(&substances[0], 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
+                        }
+                    }
+                }
+            }
+            if (state == 4) {
+                std::string loc = "Saves/" + std::to_string(gameNum) + "/chunks/";
+                for (int x = 0; x < 3; x++) {
+                    for (int y = 0; y < 3; y++) {
+                        for (int z = 0; z < 3; z++) {
+                            worldland[x][y][z].Save(loc);
+                        }
+                    }
+                }
+            }
+
+            int maxIndex = *(&vertices) - vertices;
+
+            //update the vertices here
+            for (auto f : vertices) {
+                f = 0.0f;
+            };
+            //cout << gameCursor;
 
 
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-        // position attribute
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
-        // color attribute
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(2 * sizeof(float)));
-        glEnableVertexAttribArray(1);
 
 
 
-        // render
-        // ------
-        glClearColor(0.0f, 0.0f, 0.0f, 0.5f);
-        glClear(GL_COLOR_BUFFER_BIT);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-        glfwGetWindowSize(window,&screen_width,&screen_height);
-        glPointSize(4);
+            // position attribute
+            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(0);
+            // color attribute
+            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(2 * sizeof(float)));
+            glEnableVertexAttribArray(1);
 
-        // render the triangle
-        glBindVertexArray(VAO);
-        glDrawArrays(GL_POINTS, 0, 120000);
 
-        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
-        // -------------------------------------------------------------------------------
-        glfwSwapBuffers(window);
-        glfwPollEvents();
+
+            // render
+            // ------
+            glClearColor(0.0f, 0.0f, 0.0f, 0.5f);
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            glfwGetWindowSize(window, &screen_width, &screen_height);
+            glPointSize(4);
+
+            // render the triangle
+            glBindVertexArray(VAO);
+            glDrawArrays(GL_POINTS, 0, vcount);
+
+            // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
+            // -------------------------------------------------------------------------------
+            glfwSwapBuffers(window);
+            glfwPollEvents();
+        }
+        frameFinish = glfwGetTime();
+
     }
 
     // optional: de-allocate all resources once they've outlived their purpose:
@@ -288,24 +390,48 @@ int processInput(GLFWwindow* window, loc3d &gameCursor)
         result = 3;
     if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
         result = 4;
-    if (glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_KP_0) == GLFW_PRESS)
         if (gameCursor.y > 0 )
             gameCursor.y--;
-    if (glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_KP_ADD) == GLFW_PRESS)
         if (gameCursor.y < 12 - 1)
             gameCursor.y++;
-    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_KP_9) == GLFW_PRESS)
         if (gameCursor.z > 0)
             gameCursor.z--;
-    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_KP_1) == GLFW_PRESS)
         if (gameCursor.z < 12 - 1)
             gameCursor.z++;
-    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_KP_7) == GLFW_PRESS)
         if (gameCursor.x > 0)
             gameCursor.x--;
-    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_KP_3) == GLFW_PRESS)
         if (gameCursor.x < 12 - 1)
             gameCursor.x++;
+    if (glfwGetKey(window, GLFW_KEY_KP_8) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
+        if (gameCursor.z > 0)
+            gameCursor.z--;
+        if (gameCursor.x > 0)
+            gameCursor.x--;
+    }
+    if (glfwGetKey(window, GLFW_KEY_KP_6) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+        if (gameCursor.z > 0)
+            gameCursor.z--;
+        if (gameCursor.x < 12 - 1)
+            gameCursor.x++;
+    }
+    if (glfwGetKey(window, GLFW_KEY_KP_4) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
+        if (gameCursor.x > 0)
+            gameCursor.x--;
+        if (gameCursor.z < 12 - 1)
+            gameCursor.z++;
+    }
+    if (glfwGetKey(window, GLFW_KEY_KP_2) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
+        if (gameCursor.x < 12 - 1)
+            gameCursor.x++;
+        if (gameCursor.z < 12 - 1)
+            gameCursor.z++;
+    }
     return result;
 }
 

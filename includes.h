@@ -27,9 +27,9 @@
 
 
 
-
 //MAGIC NUMBERS
 //infinity for floats 
+const std::string VERSION = "0.0.1.1";
 const float INF = std::numeric_limits<float>::infinity();
 const double PI = std::atan(1.0) * 4;
 

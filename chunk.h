@@ -5,7 +5,7 @@
 #include "voxels.h"
 #include "voxfuncs.h"
 
-
+const int RDIM = 12;
 namespace Game {
     
 
@@ -18,20 +18,25 @@ namespace Game {
 
     public:
         chunk();
+        chunk(int x, int y, int z);
 
     private:
 
-        voxel voxels[12][12][12];
-
+        voxel* voxels[RDIM][RDIM][RDIM];
+        loc3d location;
 
     public:
-        voxel getVoxel(int x, int y, int z) { return voxels[x][y][z]; };
-        void DrawVoxels(float verts[]);
+        voxel getVoxel(int x, int y, int z) { return *(voxels[x][y][z]); };
+        int DrawVoxels(float verts[], loc3d curs, int offset);
         // void UpdateNeighbors();
         void Simulate();
-        void Insert(voxel v, int x, int y, int z) { voxels[x][y][z] = v; };
 
-        void Save(std::string saveloc,int x, int y , int z);
+        void Fill(voxel v);
+        void Insert(voxel * v, int x, int y, int z) { voxels[x][y][z] = v; };
+
+        void SetLocation(loc3d loc) { location = loc; };
+
+        void Save(std::string saveloc);
         void Load(std::string loadloc,int x, int y, int z);
 
         ~chunk();

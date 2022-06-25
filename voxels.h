@@ -5,7 +5,7 @@
 namespace Game
 {
     struct voxel {
-        voxel(substance* sub, float t, bool s) {
+        voxel(substance* sub, float t, bool s = true) {
             substance = sub;
             temperature = t;
             settled = s;
@@ -28,6 +28,7 @@ namespace Game
             }
         }
         void checkSettle(bool moved) {
+            
             if (!moved) {
                 settle_timer++;
 
@@ -36,9 +37,12 @@ namespace Game
                 settle_timer = 0;
                 settled = false;
             }
-            if (settle_timer >= 5) {
+            if (settle_timer >= 99999) {
                 settled = true;
             }
+            
+            
+            
         }
         void operator = (const voxel& v) {
 
