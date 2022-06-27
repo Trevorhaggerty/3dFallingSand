@@ -3,7 +3,7 @@
 Un-named Falling Voxel game
 ---------------------------
 written by Trevor Haggerty
-Version 0.0.1.1
+Version 0.0.3.2
 */
 
 //includes
@@ -24,9 +24,6 @@ using namespace logspace;
 //logging object
 Logger logger("Global");
 
-
-
-int logTrash;
 
 
 //TODO MOVE COLORS TO SHADER
@@ -58,13 +55,22 @@ int processInput(GLFWwindow* window, loc3d &gameCursor);
 //TODO MOVE SHADERS TO SEPERATE FILE
 //shaders
 const char* vertexShaderSource = "#version 330 core\n"
-"layout (location = 0) in vec3 aPos;\n"
-"layout (location = 1) in vec3 aColor;\n"
+"layout (location = 0) in vec3 col;\n"
+//"layout (location = 1) in int colman;\n"
+
 "out vec3 ourColor;\n"
 "void main()\n"
 "{\n"
-"   gl_Position = vec4(aPos, 1.0);\n"
-"   ourColor = aColor;\n"
+"   int id = gl_VertexID;\n"
+"   int idx = ((id % 160)-80);\n"
+"   int idy = ((id / 160)-60 );\n"
+"   float newPosx = float(idx)/80.0;\n"
+"   float newPosy = float(idy)/60.0 + (id % 2)/120.0;\n"
+"   float newPos = float(id)/1900;\n"
+
+
+"   gl_Position = vec4(newPosx,newPosy,0,1);\n"
+"   ourColor = col;\n"
 "}\0";
 
 const char* fragmentShaderSource = "#version 330 core\n"
@@ -74,6 +80,9 @@ const char* fragmentShaderSource = "#version 330 core\n"
 "{\n"
 "   FragColor = vec4(ourColor, 1.0f);\n"
 "}\n\0";
+
+
+
 
 
 
@@ -199,16 +208,35 @@ int main()
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
+
+    
     //vertices that will be drawn to screen
     //TODO ABSTRACT THE COLORS FOR VERTEX SHADER, WILL POTENTIALLY REDUCE VERTICES ARRAY SIZE
     //TODO MAKE TEXT FOR MENUS AND SUCH
     //??TODO?? USE FRAGMENT SHADER TO CREATE EFFECTS
-    float vertices[25205];
+    float vertices[57600];
     //update the vertices here
-    for (auto f : vertices) {
-        f = 1.0f;
-    }
 
+    
+    for (int i = 0; i < 19200; i++) {
+        if (i < 160) {
+            vertices[i * 3] = 0;
+            vertices[i * 3 + 1] = 1;
+            vertices[i * 3 + 2] = 0;
+        }
+        else {
+            vertices[i * 3] = randomInt(255) / 255.0f;
+            vertices[i * 3 + 1] = (i + 1) / 19200.0f;
+            vertices[i * 3 + 2] = (i + 2) / 19200.0f;
+        }
+        //std::cout << vertices[i * 2] << ",";
+        //std::cout << vertices[i * 2 + 1] << ",";
+        //std::cout << "(" << vertices[i * 5 + 2] << ",";
+        //std::cout << vertices[i * 5 + 3] << ",";
+        //std::cout << vertices[i * 5 + 4] << ")" << std::endl;
+        
+    }
+    
     logger.log(1, "VERTICES MADE", "size of obj " + std::to_string(sizeof(vertices)) + " bytes");
 
 
@@ -229,15 +257,15 @@ int main()
     glUseProgram(shaderProgram);
 
     
-    //create a chunk
+    //create the "cursor" chunks
     loc3d loc3;
     chunk worldland[3][3][3];
     for (int x = 0; x < 3; x++) {
         for (int y = 0; y < 3; y++) {
             for (int z = 0; z < 3; z++) {
-                loc3.x = x - 1;
-                loc3.y = y - 1;
-                loc3.z = z - 1;
+                loc3.x = x - 3 / 2;
+                loc3.y = y - 3 / 2;
+                loc3.z = z - 3 / 2;
                 worldland[x][y][z].SetLocation(loc3);
             }
         }
@@ -254,6 +282,8 @@ int main()
     int vcount = 0;
     int state = 0;
 
+   
+    
     while (!glfwWindowShouldClose(window))
     {
         
@@ -267,47 +297,36 @@ int main()
             
             // input
             state = processInput(window, gameCursor);
-
+            
+            for (int i = 0; i < 19200; i++) {
+                vertices[i * 3] = randomInt(100) / 1000.f;
+                vertices[i * 3 + 1] = randomInt(100) / 1000.f;
+                vertices[i * 3 + 2] = randomInt(100) / 1000.f;
+            }
+            
+            worldland[0][0][0].Simulate();
             
             for (int x = 0; x < 3; x++) {
                 for (int y = 0; y < 3; y++) {
                     for (int z = 0; z < 3; z++) {
-                        worldland[x][y][z].Simulate();
-                        vcountiter = worldland[x][y][z].DrawVoxels(vertices, gameCursor, vcount*5);
+                        vcountiter = worldland[x][y][z].DrawVoxels(vertices, gameCursor, vcount);
                         vcount += vcountiter - 2;
                     }
                 }
             }
-
+            
 
 
             if (state == 1) {
-                for (int x = 0; x < 3; x++) {
-                    for (int y = 0; y < 3; y++) {
-                        for (int z = 0; z < 3; z++) {
-                            worldland[x][y][z].Insert(new voxel(&substances[1], 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
-                       }
-                    }
-                }
+                worldland[0][0][0].Insert(new voxel(&substances[1], 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
             }
             if (state == 2) {
-                for (int x = 0; x < 3; x++) {
-                    for (int y = 0; y < 3; y++) {
-                        for (int z = 0; z < 3; z++) {
-                            worldland[x][y][z].Insert(new voxel(&substances[2], 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
-                        }
-                    }
-                }
+                worldland[0][0][0].Insert(new voxel(&substances[2], 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
             }
             if (state == 3) {
-                for (int x = 0; x < 3; x++) {
-                    for (int y = 0; y < 3; y++) {
-                        for (int z = 0; z < 3; z++) {
-                            worldland[x][y][z].Insert(new voxel(&substances[0], 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
-                        }
-                    }
-                }
+                worldland[0][0][0].Insert(new voxel(&substances[0], 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
             }
+            /*
             if (state == 4) {
                 std::string loc = "Saves/" + std::to_string(gameNum) + "/chunks/";
                 for (int x = 0; x < 3; x++) {
@@ -322,25 +341,22 @@ int main()
             int maxIndex = *(&vertices) - vertices;
 
             //update the vertices here
-            for (auto f : vertices) {
-                f = 0.0f;
-            };
+            
             //cout << gameCursor;
 
+            */
 
-
+            
 
 
             glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
             // position attribute
-            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*)0);
             glEnableVertexAttribArray(0);
             // color attribute
-            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(2 * sizeof(float)));
-            glEnableVertexAttribArray(1);
-
-
+            //glVertexAttribPointer(1, 1, GL_INT, GL_FALSE, sizeof(int), (void*)( 1 * sizeof(int)));
+            //glEnableVertexAttribArray(1);
 
             // render
             // ------
@@ -352,7 +368,7 @@ int main()
 
             // render the triangle
             glBindVertexArray(VAO);
-            glDrawArrays(GL_POINTS, 0, vcount);
+            glDrawArrays(GL_POINTS, 0, 19200);
 
             // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
             // -------------------------------------------------------------------------------
@@ -368,6 +384,8 @@ int main()
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteProgram(shaderProgram);
+
+    delete worldland;
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
@@ -390,6 +408,8 @@ int processInput(GLFWwindow* window, loc3d &gameCursor)
         result = 3;
     if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
         result = 4;
+    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
+        result = 5;
     if (glfwGetKey(window, GLFW_KEY_KP_0) == GLFW_PRESS)
         if (gameCursor.y > 0 )
             gameCursor.y--;

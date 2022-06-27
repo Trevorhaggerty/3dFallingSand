@@ -3,6 +3,7 @@
 
 namespace Game
 {
+   
 
     struct loc2d {
         loc2d() { x = 0; y = 0; };
@@ -87,7 +88,7 @@ namespace Game
             loc2d result(0, 0);
 
             result.x = (float)(x - z);
-            result.y = (float)(y)-(x + z) / 2.0f;
+            result.y = (float)(y)-(x + z) / 2;
 
             return result;
         };

@@ -29,13 +29,14 @@
 
 //MAGIC NUMBERS
 //infinity for floats 
-const std::string VERSION = "0.0.1.1";
+const std::string VERSION = "0.0.3.2";
 const float INF = std::numeric_limits<float>::infinity();
 const double PI = std::atan(1.0) * 4;
 
 // SETTINGS
 //screen size
-const unsigned int SCR_WIDTH = 512;
-const unsigned int SCR_HEIGHT = 448;
+const unsigned int SCR_WIDTH = 640;
+const unsigned int SCR_HEIGHT = 480;
+
 //seed data
 const int SEED = 0;

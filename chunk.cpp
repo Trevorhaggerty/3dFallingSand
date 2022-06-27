@@ -214,7 +214,7 @@ namespace Game {
 
         int indexMax = rdim - 1;
         int currentShell = 0;
-        int currentIndex = offset;
+        int currentIndex = 0;
 
         float heightMod;
         int count = 0;
@@ -228,12 +228,7 @@ namespace Game {
                     if (curs.x == cursor.x && curs.y == cursor.y && curs.z == cursor.z) {
                         cursor2 = cursor.collapseZ();
 
-                        verts[currentIndex] = (float)((cursor2.x) / (SCR_WIDTH / 8));
-
-                        currentIndex++;
-                        verts[currentIndex] = (float)((cursor2.y) / (SCR_HEIGHT / 8));
-
-                        currentIndex++;
+                        currentIndex = (cursor2.x * 3 + cursor2.y * 480) + 28800 + 240;
                         verts[currentIndex] = 0.1f;
 
                         currentIndex++;
@@ -246,19 +241,11 @@ namespace Game {
                         count++;
                     }
                     else if (voxels[x][currentShell][z]->substance->name != "air") {
-
                         cursor2 = cursor.collapseZ();
-                        verts[currentIndex] = (float)((cursor2.x) / (SCR_WIDTH / 8));
+                        currentIndex = (cursor2.x * 3 + cursor2.y * 480) + 28800 + 240;
 
-                        currentIndex++;
-                        verts[currentIndex] = (float)((cursor2.y) / (SCR_HEIGHT / 8));
+                        heightMod = 1.0f - cos(PI * currentShell / rdim) / 2;
 
-
-                        heightMod = 1.0f - cos(PI * cursor.y / rdim) / 2;
-
-
-
-                        currentIndex++;
                         verts[currentIndex] = (voxels[x][currentShell][z]->substance->color[0] * heightMod);
 
                         currentIndex++;
@@ -282,12 +269,7 @@ namespace Game {
                     if (curs.x == cursor.x && curs.y == cursor.y && curs.z == cursor.z) {
                         cursor2 = cursor.collapseZ();
 
-                        verts[currentIndex] = (float)((cursor2.x) / (SCR_WIDTH / 8));
-
-                        currentIndex++;
-                        verts[currentIndex] = (float)((cursor2.y) / (SCR_HEIGHT / 8));
-
-                        currentIndex++;
+                        currentIndex = (cursor2.x * 3 + cursor2.y * 480) + 28800 + 240;
                         verts[currentIndex] = 0.1f;
 
                         currentIndex++;
@@ -301,16 +283,10 @@ namespace Game {
                     }
                     else if (voxels[currentShell][y][z]->substance->name != "air") {
                         cursor2 = cursor.collapseZ();
-                        verts[currentIndex] = (float)((cursor2.x) / (SCR_WIDTH / 8));
-
-                        currentIndex++;
-                        verts[currentIndex] = (float)((cursor2.y) / (SCR_HEIGHT / 8));
-
-
+                        currentIndex = (cursor2.x * 3 + (cursor2.y) * 480)  + 28800 + 240;
                         heightMod = 1.0f - cos(PI * y / rdim) / 2;
 
 
-                        currentIndex++;
                         verts[currentIndex] = (voxels[currentShell][y][z]->substance->color[0] * heightMod);
 
                         currentIndex++;
@@ -332,13 +308,7 @@ namespace Game {
                     cursor.x = x + (location.x * rdim);
                     if (curs.x == cursor.x && curs.y == cursor.y && curs.z == cursor.z) {
                         cursor2 = cursor.collapseZ();
-
-                        verts[currentIndex] = (float)((cursor2.x) / (SCR_WIDTH / 8));
-
-                        currentIndex++;
-                        verts[currentIndex] = (float)((cursor2.y) / (SCR_HEIGHT / 8));
-
-                        currentIndex++;
+                        currentIndex = (cursor2.x * 3 + cursor2.y * 480)  + 28800 + 240;
                         verts[currentIndex] = 0.1f;
 
                         currentIndex++;
@@ -351,17 +321,10 @@ namespace Game {
                         count++;
                     }
                     else if (voxels[x][y][currentShell]->substance->name != "air") {
-
                         cursor2 = cursor.collapseZ();
-
-                        verts[currentIndex] = (float)((cursor2.x) / (SCR_WIDTH / 8));
-
-                        currentIndex++;
-                        verts[currentIndex] = (float)((cursor2.y) / (SCR_HEIGHT / 8));
-
+                        currentIndex = (cursor2.x * 3 + cursor2.y * 480) + 28800 + 240;
                         heightMod = 1.0f - cos(PI * y / rdim) / 2;
 
-                        currentIndex++;
                         verts[currentIndex] = (voxels[x][y][currentShell]->substance->color[0] * heightMod);
 
                         currentIndex++;

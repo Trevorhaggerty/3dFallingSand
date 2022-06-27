@@ -44,5 +44,5 @@ namespace Game {
 
 
 
-
+    int randomInt(int i);
 }
