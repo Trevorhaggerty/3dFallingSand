@@ -6,29 +6,22 @@ int rdim = 12;
 namespace Game {
 
     
+    void chunk::Insert(voxel* v, int x, int y, int z) 
+    { 
+        if (x >= 0 && x < rdim && y >= 0 && y < rdim && z >= 0 && z < rdim) {
+            voxels[x][y][z] = v;
+        }
+    };
 
     int randomInt(int i) { return std::rand() % i; }
 
 
-    chunk::chunk() {
-        location = {0,0,0};
-        float basecolor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-        substance* air = new substance("air", NULL, NULL, -INF, INF, basecolor, 0.001f, "gas");
-        voxel* airVox = new voxel(air, 75.0f, true);
-        for (int i = 0; i < rdim; i++) {
-            for (int j = 0; j < rdim; j++) {
-                for (int k = 0; k < rdim; k++) {
-                    voxels[i][j][k] = airVox;
-                }
-            }
-        }
-
-    };
-    chunk::chunk(int x, int y, int z) {
+   
+    chunk::chunk(int x, int y , int z ) {
         location = { x,y,z };
-        float basecolor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-        substance* air = new substance("air", NULL, NULL, -INF, INF, basecolor, 0.001f, "gas");
-        voxel* airVox = new voxel(air, 75.0f, true);
+        float basecolor[] = { 26 / 25500.0f, 107 / 25500.0f, 102 / 25500.0f , 0.01f};
+        substance* air = new substance("air", NULL, NULL, -INF, INF, basecolor, 0.0001f, "gas");
+        voxel* airVox = new voxel(air, 75.0f, false);
         for (int i = 0; i < rdim; i++) {
             for (int j = 0; j < rdim; j++) {
                 for (int k = 0; k < rdim; k++) {
@@ -82,7 +75,8 @@ namespace Game {
             moved = false;
 
             if (voxels[it->x][it->y][it->z]->substance->state == "powder"
-                || voxels[it->x][it->y][it->z]->substance->state == "liquid") {
+                || voxels[it->x][it->y][it->z]->substance->state == "liquid"
+                || voxels[it->x][it->y][it->z]->substance->state == "gas") {
                 if (it->y >= 0) {
                     if (it->y > 0) {
                         if (voxels[it->x][it->y][it->z]->substance->density > voxels[it->x][it->y - 1][it->z]->substance->density) {
@@ -225,40 +219,46 @@ namespace Game {
                 for (int z = 0; z <= currentShell; z++) {
                     cursor.x = x + (location.x * rdim);
                     cursor.z = z + (location.z * rdim);
+                    cursor2 = cursor.collapseZ();
+                    currentIndex = (cursor2.x * 3 + cursor2.y * 480) + 28800 + 240;
                     if (curs.x == cursor.x && curs.y == cursor.y && curs.z == cursor.z) {
-                        cursor2 = cursor.collapseZ();
 
-                        currentIndex = (cursor2.x * 3 + cursor2.y * 480) + 28800 + 240;
                         verts[currentIndex] = 0.1f;
+                        verts[currentIndex + 1] = 1.0f;
+                        verts[currentIndex + 2] = 0.1f;
 
-                        currentIndex++;
-                        verts[currentIndex] = 1.0f;
-
-                        currentIndex++;
-                        verts[currentIndex] = 0.1f;
-
-                        currentIndex++;
                         count++;
                     }
-                    else if (voxels[x][currentShell][z]->substance->name != "air") {
-                        cursor2 = cursor.collapseZ();
-                        currentIndex = (cursor2.x * 3 + cursor2.y * 480) + 28800 + 240;
+                    
+                    else if (voxels[x][currentShell][z]->substance->state == "powder" || voxels[x][currentShell][z]->substance->state == "solid") {
 
-                        heightMod = 1.0f - cos(PI * currentShell / rdim) / 2;
+                        
 
-                        verts[currentIndex] = (voxels[x][currentShell][z]->substance->color[0] * heightMod);
-
-                        currentIndex++;
-                        verts[currentIndex] = (voxels[x][currentShell][z]->substance->color[1] * heightMod);
-
-                        currentIndex++;
-                        verts[currentIndex] = (voxels[x][currentShell][z]->substance->color[2] * heightMod);
+                        verts[currentIndex] = (voxels[x][currentShell][z]->substance->color[0] );
+                        verts[currentIndex + 1] = (voxels[x][currentShell][z]->substance->color[1] );
+                        verts[currentIndex + 2] = (voxels[x][currentShell][z]->substance->color[2] );
 
                         currentIndex++;
                         count++;
                     
                     }
+                    else if (curs.x == cursor.x && curs.y >= cursor.y && curs.z == cursor.z) {
 
+                        verts[currentIndex] += 0.1f;
+                        verts[currentIndex + 1] += 0.3f;
+                        verts[currentIndex + 2] += 0.1f;
+
+                        count++;
+                    }
+                    else if (voxels[x][currentShell][z]->substance->state == "liquid" || voxels[x][currentShell][z]->substance->state == "gas") {
+
+                        
+                        verts[currentIndex] += voxels[x][currentShell][z]->substance->color[0];// *(voxels[x][currentShell][z]->substance->color[3] * 1.0f) + verts[currentIndex] * (1.0f - voxels[x][currentShell][z]->substance->color[3]);
+                        verts[currentIndex + 1] += voxels[x][currentShell][z]->substance->color[1];// *(voxels[x][currentShell][z]->substance->color[3] * 1.0f) + verts[currentIndex] * (1.0f - voxels[x][currentShell][z]->substance->color[3]);
+                        verts[currentIndex + 2] += voxels[x][currentShell][z]->substance->color[2];// *(voxels[x][currentShell][z]->substance->color[3] * 1.0f) + verts[currentIndex] * (1.0f - voxels[x][currentShell][z]->substance->color[3]);
+                        count++;
+
+                    }
                 }
             }
             cursor.x = currentShell + (location.x * rdim);
@@ -266,39 +266,47 @@ namespace Game {
                 for (int z = 0; z <= currentShell; z++) {
                     cursor.y = y + (location.y * rdim);
                     cursor.z = z + (location.z * rdim);
+                    cursor2 = cursor.collapseZ();
+                    currentIndex = (cursor2.x * 3 + cursor2.y * 480) + 28800 + 240;
                     if (curs.x == cursor.x && curs.y == cursor.y && curs.z == cursor.z) {
-                        cursor2 = cursor.collapseZ();
 
-                        currentIndex = (cursor2.x * 3 + cursor2.y * 480) + 28800 + 240;
                         verts[currentIndex] = 0.1f;
+                        verts[currentIndex + 1] = 1.0f;
+                        verts[currentIndex + 2] = 0.1f;
 
-                        currentIndex++;
-                        verts[currentIndex] = 1.0f;
-
-                        currentIndex++;
-                        verts[currentIndex] = 0.1f;
-
-                        currentIndex++;
                         count++;
                     }
-                    else if (voxels[currentShell][y][z]->substance->name != "air") {
-                        cursor2 = cursor.collapseZ();
-                        currentIndex = (cursor2.x * 3 + (cursor2.y) * 480)  + 28800 + 240;
-                        heightMod = 1.0f - cos(PI * y / rdim) / 2;
-
-
-                        verts[currentIndex] = (voxels[currentShell][y][z]->substance->color[0] * heightMod);
-
-                        currentIndex++;
-                        verts[currentIndex] = (voxels[currentShell][y][z]->substance->color[1] * heightMod);
-
-                        currentIndex++;
-                        verts[currentIndex] = (voxels[currentShell][y][z]->substance->color[2] * heightMod);
-
-                        currentIndex++;
-                        count++;
                     
+                    else if (voxels[currentShell][y][z]->substance->state == "powder" || voxels[currentShell][y][z]->substance->state == "solid") {
+
+                        
+
+                        verts[currentIndex] = (voxels[currentShell][y][z]->substance->color[0] );
+                        verts[currentIndex + 1] = (voxels[currentShell][y][z]->substance->color[1] );
+                        verts[currentIndex + 2] = (voxels[currentShell][y][z]->substance->color[2] );
+
+                        currentIndex++;
+                        count++;
+
                     }
+                    else if (curs.x == cursor.x && curs.y >= cursor.y && curs.z == cursor.z) {
+
+                        verts[currentIndex] += 0.1f;
+                        verts[currentIndex + 1] += 0.3f;
+                        verts[currentIndex + 2] += 0.1f;
+
+                        count++;
+                    }
+                    else if (voxels[currentShell][y][z]->substance->state == "liquid" || voxels[currentShell][y][z]->substance->state == "gas") {
+    
+
+                        verts[currentIndex] += voxels[currentShell][y][z]->substance->color[0];
+                        verts[currentIndex + 1] += (voxels[currentShell][y][z]->substance->color[1]);
+                        verts[currentIndex + 2] += (voxels[currentShell][y][z]->substance->color[2]);
+                        count++;
+
+                    }
+
                 }
             }
             cursor.z = currentShell + (location.z * rdim);
@@ -306,37 +314,53 @@ namespace Game {
                 for (int x = 0; x <= currentShell - 1; x++) {
                     cursor.y = y + (location.y * rdim);
                     cursor.x = x + (location.x * rdim);
+                    cursor2 = cursor.collapseZ();
+                    currentIndex = (cursor2.x * 3 + cursor2.y * 480)  + 28800 + 240;
+
                     if (curs.x == cursor.x && curs.y == cursor.y && curs.z == cursor.z) {
-                        cursor2 = cursor.collapseZ();
-                        currentIndex = (cursor2.x * 3 + cursor2.y * 480)  + 28800 + 240;
+                        
                         verts[currentIndex] = 0.1f;
+                        verts[currentIndex + 1] = 1.0f;
+                        verts[currentIndex + 2] = 0.1f;
 
-                        currentIndex++;
-                        verts[currentIndex] = 1.0f;
-
-                        currentIndex++;
-                        verts[currentIndex] = 0.1f;
-
-                        currentIndex++;
                         count++;
                     }
-                    else if (voxels[x][y][currentShell]->substance->name != "air") {
-                        cursor2 = cursor.collapseZ();
-                        currentIndex = (cursor2.x * 3 + cursor2.y * 480) + 28800 + 240;
-                        heightMod = 1.0f - cos(PI * y / rdim) / 2;
+                    
+                    else if (voxels[x][y][currentShell]->substance->state == "powder" || voxels[x][y][currentShell]->substance->state == "solid") {
+                        
+                        
 
-                        verts[currentIndex] = (voxels[x][y][currentShell]->substance->color[0] * heightMod);
-
-                        currentIndex++;
-                        verts[currentIndex] = (voxels[x][y][currentShell]->substance->color[1] * heightMod);
+                        verts[currentIndex] = (voxels[x][y][currentShell]->substance->color[0] );
 
                         currentIndex++;
-                        verts[currentIndex] = (voxels[x][y][currentShell]->substance->color[2] * heightMod);
+                        verts[currentIndex] = (voxels[x][y][currentShell]->substance->color[1] );
+
+                        currentIndex++;
+                        verts[currentIndex] = (voxels[x][y][currentShell]->substance->color[2] );
 
                         currentIndex++;
                         count++;
 
                     }
+                    else if (curs.x == cursor.x && curs.y >= cursor.y && curs.z == cursor.z) {
+
+                        verts[currentIndex] += 0.1f;
+                        verts[currentIndex + 1] += 0.3f;
+                        verts[currentIndex + 2] += 0.1f;
+
+                        count++;
+                    }
+                    else if (voxels[x][y][currentShell]->substance->state == "liquid" || voxels[x][y][currentShell]->substance->state == "gas") {
+
+                        
+
+                        verts[currentIndex] += voxels[x][y][currentShell]->substance->color[0];
+                        verts[currentIndex + 1] += (voxels[x][y][currentShell]->substance->color[1]);
+                        verts[currentIndex + 2] += (voxels[x][y][currentShell]->substance->color[2]);
+                        count++;
+
+                    }
+
                 }
             }
             currentShell++;
@@ -344,6 +368,15 @@ namespace Game {
         }
         return count;
     };
+
+
+
+
+
+
+
+
+
 
 
     void chunk::Save(std::string saveloc) {
@@ -368,6 +401,10 @@ namespace Game {
             }
 
     };
+
+
+
+
     void chunk::Load(std::string loadloc, int x, int y, int z) {
     
         loadloc = loadloc + std::to_string(x) + "," + std::to_string(y) + "," + std::to_string(z) + ".chunk";

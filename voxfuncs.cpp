@@ -11,6 +11,18 @@ namespace Game{
         return result;
     }
 
+    loc3d findAtHeight(loc2d mouseCurs, int height) {
+        loc3d result;
+
+        result.x = height - mouseCurs.y + (mouseCurs.x / 2);
+        result.y = height;
+        result.z = height - mouseCurs.y - (mouseCurs.x / 2);
+
+
+        return result;
+    }
+
+
 }
 
 

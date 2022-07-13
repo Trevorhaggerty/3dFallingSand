@@ -3,7 +3,7 @@
 //includes
 #include "includes.h"
 #include "voxels.h"
-#include "voxfuncs.h"
+#include "colorfuncs.h"
 
 const int RDIM = 12;
 namespace Game {
@@ -17,8 +17,7 @@ namespace Game {
     class chunk {
 
     public:
-        chunk();
-        chunk(int x, int y, int z);
+        chunk(int x =0, int y=0, int z=0);
 
     private:
 
@@ -32,7 +31,7 @@ namespace Game {
         void Simulate();
 
         void Fill(voxel v);
-        void Insert(voxel * v, int x, int y, int z) { voxels[x][y][z] = v; };
+        void Insert(voxel * v, int x, int y, int z);
 
         void SetLocation(loc3d loc) { location = loc; };
 
