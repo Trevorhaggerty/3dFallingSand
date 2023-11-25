@@ -3,29 +3,46 @@
 #include "includes.h"
 
 
-//custom logger
-namespace logspace {
-
+//custom logger for managing information and trounleshooting
+namespace Game {
+    
+    //tne main logger class
     class Logger {
     
     public:  
-        Logger(std::string l = "unknown", int f = 10, int c = 0, bool d = true, bool s = true) {
+        
+        //constructor
+        Logger(std::string l = "unknown", int f = DEBUGVALUE, int c = 0,   bool d = true, bool s = true) {
             location = l;
             filter = f;
-            counter = c;
             displaying = d;
             saving = s;
+
         };
+        
+   
     private:
+        //internal variables
         std::string location;
         int filter;
         bool displaying;
         bool saving;
-        int counter;
+        static int counter;
+
+       
 
     public:
+        //main logging function
         int log(int priority, std::string event, std::string message);
+
+
+        //mutators
         void updateLocation(std::string l) { location = l; };
+        void updateDisplaying(bool b) { displaying = b; };
+        
+
+
+
     };
 
 

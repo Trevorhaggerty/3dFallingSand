@@ -3,107 +3,49 @@
 Un-named Falling Voxel game
 ---------------------------
 written by Trevor Haggerty
-Version 0.0.4.3
+Version 0.1.6.4
 */
 
 //includes
 #include "includes.h"
+
 //local headers
-#include "voxfuncs.h"
-#include "substance.h"
-#include "gamemem.h"
-#include "world.h"
-#include "voxels.h"
-#include "chunk.h"
-#include "logger.h"
+//#include "camera.h"
+#include "imagefunc.h"
+#include "imap.h"
+#include "shaders.h"
+#include "session.h"
+
+
+//file manipulation library
+#include <fstream>
 
 //namespaces
 using namespace Game;
-using namespace logspace;
 
 //logging object
 Logger logger("Global");
 
-
-struct imap {
-    bool key[104];
-    double mousex;
-    double mousey;
-    int mousei;
-    imap() {
-        for (bool b : key) {
-            b = false;
-            
-        }
-        mousex = 0;
-        mousey = 0;
-        mousei = 0;
-    };
-};
+//used to monitor player input
+imap inputState;
 
 
-
-//TODO MOVE COLORS TO SHADER
-//colors to be used
-float basecolor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-float aircol[] = { 26 / 25500.0f, 107 / 25500.0f, 102 / 25500.0f, 0.01f };
-float sandcol[] = { 0.50f, 0.50f, 0.0f, 1.0f };
-float watercol[] = { -0.10f, -0.10f, 0.25f, 1.0f };
-
-
-
-//TODO MAKE DICTIONARY TO HOLD SUBSTANCES
-//Substances for voxel manipulation and representation
-// (name, lo phase, hi phase, lo temp, hi temp, color, density, current phase)
-substance* air = new substance("air", NULL, NULL, -INF, INF, aircol, 0.001f, "gas");
-substance* sand = new substance("snd", NULL, NULL, -INF, 0.0f, sandcol, 1.5f, "powder");
-
-substance* steam = new substance("stm", NULL, NULL, 100.0f, INF, basecolor, 0.0005f, "gas");
-substance* ice = new substance("ice", NULL, NULL, -INF, 0.0f, basecolor, 0.9f, "solid");
-substance* water = new substance("wtr", ice, steam, 0.0f, 100.0f, watercol, 1.0f, "liquid");
-
-
-
-
+//set the window dimensions
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 
+//get input started
 void processInput(GLFWwindow* window, imap &state);
 
+//make the screen fuzzy
+void fuzz(float* vertices, float frameStart);
 
-//TODO MOVE SHADERS TO SEPERATE FILE
-//shaders
-const char* vertexShaderSource = "#version 330 core\n"
-"layout (location = 0) in vec3 col;\n"
-"out vec3 ourColor;\n"
-"void main()\n"
-"{\n"
-"   int winx =  640 / 4;\n"
-"   int winy = 480 / 4;\n"
-"   int v_id = gl_VertexID;\n"
-"   int idx = ((v_id % winx) - winx / 2);\n"
-"   int idy = ((v_id / winx) - winy / 2 );\n"
-"   float newPosx = float(idx)/(winx / 2.0);\n"
-"   float offsety = float(((v_id - 1) % 2) / float(winy));\n"
-"   float newPosy = float(idy)/(winy / 2.0) + offsety  ;\n"
-
-
-"   gl_Position = vec4(newPosx,newPosy,0,1);\n"
-"   ourColor = col;\n"
-"}\0";
-
-const char* fragmentShaderSource = "#version 330 core\n"
-"out vec4 FragColor;\n"
-"in vec3 ourColor;\n"
-"void main()\n"
-"{\n"
-"   FragColor = vec4(ourColor, 1.0f);\n"
-"}\n\0";
+session currentSession;
 
 
 
 
 
-
+//main function
 int main()
 {   
     logger.log(1, "PRGM START", "main func started");
@@ -115,24 +57,25 @@ int main()
     logger.log(1, "NEW SAVE", "save located at " + std::to_string(gameNum));
 
     // ints to hold current screen size
-    int screen_width, screen_height;
+    int screenWidth, screenHeight;
 
-    //location of player cursor
-    loc3d gameCursor = {0,0,0};
-    loc3df cursorColor = { 0.50f,1.0f,0.0f };
-    logger.log(1, "CURSOR MADE", "size of obj " + std::to_string(sizeof(gameCursor)) + " bytes");
-
+    //Create the substances that the games engine will run on
+    logger.log(1, "MAKING SUBSTANCE ARRAY", "size of each obj " + std::to_string(sizeof(substance)) + " bytes");
     substance substances[255];
-    substances[0] = substance("air", NULL, NULL, -INF, INF, basecolor, 0, "gas");
-    substances[1] = substance("snd", NULL, NULL, -INF, 0.0f, sandcol, 1.5f, "powder");
-    substances[2] = substance("wtr", ice, steam, 0.0f, 100.0f, watercol, 1.0f, "liquid");
-    
+    logger.log(1, "SUBSTS LIST MADE", "size of obj " + std::to_string(sizeof(substances)) + " bytes");
+
+    //fill in the substance values
+    logger.log(1, "FILLING SUBSTANCE DATA", "size of obj " + std::to_string(sizeof(substances)) + " bytes");
+    substances[0] = substance(0, "air", NULL, NULL, -INF, INF, loc4df{ 0.0f, 0.0f, 0.0f, 0.0f }, 0, "gas");
+    substances[1] = substance(1,"snd", NULL, NULL, -INF, 0.0f, loc4df{ 0.0f, 0.0f, 0.0f, 0.0f }, 1.5f, "powder");
+    substances[2] = substance(2,"wtr", NULL, NULL, 0.0f, 100.0f, loc4df{ 0.0f, 0.0f, 0.0f, 0.0f }, 1.0f, "liquid");
     logger.log(1, "SUBSTS MADE", "size of obj " + std::to_string(sizeof(substances)) + " bytes");
+
 
     // glfw: initialize and configure
     // ------------------------------
     
-    logger.log(1, "CREATING WINDOW", " version 3.3 glfw window");
+    logger.log(1, "CREATING WINDOW", " version 3.3 glfw window...");
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -156,6 +99,9 @@ int main()
     
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+
+    logger.log(1, "INIT GLAD", "initializing GLAD...");
 
     // glad: load all OpenGL function pointers
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
@@ -230,33 +176,32 @@ int main()
 
     
     //vertices that will be drawn to screen
-    //TODO ABSTRACT THE COLORS FOR VERTEX SHADER, WILL POTENTIALLY REDUCE VERTICES ARRAY SIZE
-    //TODO MAKE TEXT FOR MENUS AND SUCH
-    //??TODO?? USE FRAGMENT SHADER TO CREATE EFFECTS
     float vertices[57600];
-    //update the vertices here
-
-    loc3d locSizer(0, 0, 0);
-    logger.log(1, "loc3d generated", "size of obj " + std::to_string(sizeof(vertices)) + " bytes");
 
     
-    for (int i = 0; i < 19200; i++) {
+
+
+
+
+
+
+
+
+
+    //update the vertices here
+
+    
+    
+    for (int i = 0; i < PIXELCOUNT; i++) {
 
         
         vertices[i * 3] = ( i % 160 ) / 160.0f;
         vertices[i * 3 + 1] = (i / 160.0f) / 120.f;
-        vertices[i * 3 + 2] = i / 19200.0f;
+        vertices[i * 3 + 2] = i / PIXELCOUNT * 1.0f;
        
-        //std::cout << vertices[i * 2] << ",";
-        //std::cout << vertices[i * 2 + 1] << ",";
-        //std::cout << "(" << vertices[i * 5 + 2] << ",";
-        //std::cout << vertices[i * 5 + 3] << ",";
-        //std::cout << vertices[i * 5 + 4] << ")" << std::endl;
-        
     }
     
     logger.log(1, "VERTICES MADE", "size of obj " + std::to_string(sizeof(vertices)) + " bytes");
-
 
     //seed generation
     std::srand(SEED);
@@ -276,152 +221,65 @@ int main()
     //tell the program which shader program to use
     glUseProgram(shaderProgram);
 
+    //glfwSetScrollCallback(window, scrollCallback);
     
-    chunk * A = new chunk;
-    
+
     float frameStart = 0.0f;
     float frameFinish = 0.0f;
-    float frameLimiter = 0.016f;
-
-    int vcountiter = 0;
-    int vcount = 0;
-    imap state;
-
-    int oddman = 0;
+    float frameLimiter = 1.0f / 60.0f;
+    float splashTime = 1.0f;
     
-
-    loc4df colorone(0.0f,1.0f,0.0f,1.0f);
-    loc4df colortwo(1.0f,0.0f,1.0f,0.5);
-    loc4df colorres = blend(colorone,colortwo);
+    
 
     loc2d mousequrt;
 
+    const char* test1 = "C:/dev/c++/voxel001/assets/test1.bmp";
+    const char* test2 = "C:/dev/c++/voxel001/assets/test2.bmp";
+    const char* splashloc = "C:/dev/c++/voxel001/assets/company_splash2.bmp";
+    const char* backgroundLoc = "C:/dev/c++/voxel001/assets/background.bmp";
+    const char* backgroundLoc2 = "C:/dev/c++/voxel001/assets/background2.bmp";
+    const char* backgroundLoc1 = "C:/dev/c++/voxel001/assets/backgroundha.bmp";
 
 
-    while (!glfwWindowShouldClose(window))
-    {
-        
+
+
+
+
+
+
+    int ticker = 0;
+    int gamestate = 0; //game state 0 - splash screen
+
+
+
+
+
+
+        while (!glfwWindowShouldClose(window))
+        {
+
         if (frameFinish - frameStart > frameLimiter) {
 
-            vcount = 0;
-            vcountiter = 0;
-            
             frameStart = glfwGetTime();
-
             
             // input
-            processInput(window, state);
+            processInput(window, inputState);
             
+            glfwGetCursorPos(window, &inputState.mousex, &inputState.mousey);
+            glfwGetWindowSize(window, &screenWidth, &screenHeight);
+            glfwGetFramebufferSize(window, &screenWidth, &screenHeight);
 
-            glfwGetCursorPos(window, &state.mousex, &state.mousey);
-            glfwGetWindowSize(window, &screen_width, &screen_height);
-
-            A->DrawVoxels(vertices, gameCursor, 0);
-
-            for (int i = 0; i < 19200; i++) {
-               
-                
-                    oddman = (i / (screen_width / 4) + (int)(frameStart * 10) % 2) % 2;
-                    loc3df randcol(randomInt(100) / (1000.f / (oddman / 2.1f)), randomInt(100) / (1000.f / (oddman / 2.1f)), randomInt(100) / (1000.f / (oddman / 2.1f)));
-                    vertices[i * 3] = randcol.x;
-                    vertices[i * 3 + 1] = randcol.y;
-                    vertices[i * 3 + 2] = randcol.z;
-                
-            }
-            A->Simulate();
-            A->DrawVoxels(vertices, gameCursor, 0);
+           
             
+            loadBitmap(backgroundLoc, vertices, 160, 120);
             
-            //logger.log(1, "MOUSE AT", "location( " + std::to_string(state.mousex) +","+ std::to_string(state.mousey) + ")");
-
-            if (state.mousex < 0) {
-                state.mousex = 0;
-            }
-            if (state.mousex > screen_width-1) {
-                state.mousex = screen_width-1;
-            }
-            if (state.mousey < 0) {
-                state.mousey = 0;
-            }
-            if (state.mousey > screen_height-1) {
-                state.mousey = screen_height-1;
-            }
-
-
-
-            state.mousei = int(state.mousex / 4) +(19200) - (int(state.mousey / 4) * 160 );
-
-            if (state.mousei < 0) {
-                state.mousei = 0;
-            }
-            if (state.mousei > 19200) {
-                state.mousei = 19200;
-            }
+            fuzz(vertices, frameStart);
             
-            mousequrt = loc2d(state.mousex/4 -80, 60 - state.mousey/4 );
-
-            //vertices[state.mousei * 3] = cursorColor.x;
-            //vertices[state.mousei * 3 + 1] = cursorColor.y;
-            //vertices[state.mousei * 3 + 2] = cursorColor.z;
-
-            gameCursor = findAtHeight(mousequrt, gameCursor.y);
-            if (state.key[68] && gameCursor.y < 11) {
-                gameCursor.y++;
-            }
-            if (state.key[73] && gameCursor.y > 0) {
-                gameCursor.y--;
-            }
-            if (state.key[82] && gameCursor.x < 11) {
-                gameCursor.x++;
-            }
-            if (state.key[81] && gameCursor.z < 11) {
-                gameCursor.z++;
-            }
-            if (state.key[80] && gameCursor.x > 0) {
-                gameCursor.x--;
-            }
-            if (state.key[83] && gameCursor.z > 0) {
-                gameCursor.z--;
-            }
-
-
-
-            if (state.key[18]) {
-                A->Insert(new voxel(&substances[1], 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
-            }
-            if (state.key[19]) {
-                A->Insert(new voxel(&substances[2], 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
-            }
-            if (state.key[17]) {
-                A->Insert(new voxel(&substances[0], 75.0f, false), gameCursor.x, gameCursor.y, gameCursor.z);
-            }
-            /*
-            if (state == 4) {
-                std::string loc = "Saves/" + std::to_string(gameNum) + "/chunks/";
-                for (int x = 0; x < 3; x++) {
-                    for (int y = 0; y < 3; y++) {
-                        for (int z = 0; z < 3; z++) {
-                            A.Save(loc);
-                        }
-                    }
-                }
-            }
-
-            int maxIndex = *(&vertices) - vertices;
-
-            //update the vertices here
-            
-            //cout << gameCursor;
-
-            */
-
-            
-
 
             glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
             // position attribute
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*)0);
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
             glEnableVertexAttribArray(0);
             // color attribute
             //glVertexAttribPointer(1, 1, GL_INT, GL_FALSE, sizeof(int), (void*)( 1 * sizeof(int)));
@@ -432,7 +290,8 @@ int main()
             glClearColor(0.0f, 0.0f, 0.0f, 0.5f);
             glClear(GL_COLOR_BUFFER_BIT);
 
-            glPointSize(4);
+            int pSize = (screenWidth * screenHeight) / (19200 * 4);
+            glPointSize(pSize);
 
             // render the triangle
             glBindVertexArray(VAO);
@@ -472,571 +331,137 @@ void processInput(GLFWwindow* window, imap &state)
         state.key[0] = false;
     }
 
-    if (glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS) {
-        state.key[1] = true;
-    }
-    else {
-        state.key[1] = false;
-    }
+    state.key[1] = (glfwGetKey(window, GLFW_KEY_F1) == GLFW_PRESS);
+    state.key[2] = (glfwGetKey(window, GLFW_KEY_F2) == GLFW_PRESS);
+    state.key[3] = (glfwGetKey(window, GLFW_KEY_F3) == GLFW_PRESS);
+    state.key[4] = (glfwGetKey(window, GLFW_KEY_F4) == GLFW_PRESS);
+    state.key[5] = (glfwGetKey(window, GLFW_KEY_F5) == GLFW_PRESS);
+    state.key[6] = (glfwGetKey(window, GLFW_KEY_F6) == GLFW_PRESS);
+    state.key[7] = (glfwGetKey(window, GLFW_KEY_F7) == GLFW_PRESS);
+    state.key[8] = (glfwGetKey(window, GLFW_KEY_F8) == GLFW_PRESS);
+    state.key[9] = (glfwGetKey(window, GLFW_KEY_F9) == GLFW_PRESS);
+
+    state.key[10] = (glfwGetKey(window, GLFW_KEY_F10) == GLFW_PRESS);
+    state.key[11] = (glfwGetKey(window, GLFW_KEY_F11) == GLFW_PRESS);
+    state.key[12] = (glfwGetKey(window, GLFW_KEY_F12) == GLFW_PRESS);
+    state.key[13] = (glfwGetKey(window, GLFW_KEY_PRINT_SCREEN) == GLFW_PRESS);
+
+    state.key[14] = (glfwGetKey(window, GLFW_KEY_SCROLL_LOCK) == GLFW_PRESS);
+    state.key[15] = (glfwGetKey(window, GLFW_KEY_PAUSE) == GLFW_PRESS);
+    state.key[16] = (glfwGetKey(window, GLFW_KEY_GRAVE_ACCENT) == GLFW_PRESS);
+
+    state.key[17] = (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS);
+    state.key[18] = (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS);
+    state.key[19] = (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS);
+    state.key[20] = (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS);
+    state.key[21] = (glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS);
+    state.key[22] = (glfwGetKey(window, GLFW_KEY_6) == GLFW_PRESS);
+    state.key[23] = (glfwGetKey(window, GLFW_KEY_7) == GLFW_PRESS);
+    state.key[24] = (glfwGetKey(window, GLFW_KEY_8) == GLFW_PRESS);
+    state.key[25] = (glfwGetKey(window, GLFW_KEY_9) == GLFW_PRESS);
+    state.key[26] = (glfwGetKey(window, GLFW_KEY_0) == GLFW_PRESS);
+
+    state.key[27] = (glfwGetKey(window, GLFW_KEY_MINUS) == GLFW_PRESS);
+    state.key[28] = (glfwGetKey(window, GLFW_KEY_EQUAL) == GLFW_PRESS);
+    state.key[29] = (glfwGetKey(window, GLFW_KEY_BACKSPACE) == GLFW_PRESS);
+    state.key[30] = (glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS);
+
+    state.key[31] = (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS);
+    state.key[32] = (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS);
+    state.key[33] = (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS);
+    state.key[34] = (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS);
+    state.key[35] = (glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS);
+    state.key[36] = (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS);
+    state.key[37] = (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS);
+    state.key[38] = (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS);
+    state.key[39] = (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS);
+
+    state.key[40] = (glfwGetKey(window, GLFW_KEY_LEFT_BRACKET) == GLFW_PRESS);
+    state.key[41] = (glfwGetKey(window, GLFW_KEY_RIGHT_BRACKET) == GLFW_PRESS);
+    state.key[42] = (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS);
+    state.key[43] = (glfwGetKey(window, GLFW_KEY_CAPS_LOCK) == GLFW_PRESS);
     
-    if (glfwGetKey(window, GLFW_KEY_F2) == GLFW_PRESS) {
-        state.key[2] = true;
-    }
-    else {
-        state.key[2] = false;
-    }
+    state.key[44] = (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS);
+    state.key[45] = (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS);
+    state.key[46] = (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS);
+    state.key[47] = (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS);
+    state.key[48] = (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS);
+    state.key[49] = (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS);
+    state.key[50] = (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS);
+    state.key[51] = (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS);
+    state.key[52] = (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS);
+
+    state.key[53] = (glfwGetKey(window, GLFW_KEY_SEMICOLON) == GLFW_PRESS);
+    state.key[54] = (glfwGetKey(window, GLFW_KEY_APOSTROPHE) == GLFW_PRESS);
+    state.key[55] = (glfwGetKey(window, GLFW_KEY_BACKSLASH) == GLFW_PRESS);
+    state.key[56] = (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS);
     
-    if (glfwGetKey(window, GLFW_KEY_F3) == GLFW_PRESS) {
-        state.key[3] = true;
-    }
-    else {
-        state.key[3] = false;
-    }
+    state.key[57] = (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS);
+    state.key[58] = (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS);
+    state.key[59] = (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS);
+
+    state.key[60] = (glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS);
+    state.key[61] = (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS);
+    state.key[62] = (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS);
+    state.key[63] = (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS);
+    state.key[64] = (glfwGetKey(window, GLFW_KEY_COMMA) == GLFW_PRESS);
+    state.key[65] = (glfwGetKey(window, GLFW_KEY_PERIOD) == GLFW_PRESS);
+    state.key[66] = (glfwGetKey(window, GLFW_KEY_SLASH) == GLFW_PRESS);
+    state.key[67] = (glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS);
+    state.key[68] = (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS);
+    state.key[69] = (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS);
+
+    state.key[70] = (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS);
+    state.key[71] = (glfwGetKey(window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS);
+    state.key[72] = (glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS);
     
-    if (glfwGetKey(window, GLFW_KEY_F4) == GLFW_PRESS) {
-        state.key[4] = true;
-    }
-    else {
-        state.key[4] = false;
-    }
+    state.key[73] = (glfwGetKey(window, GLFW_KEY_INSERT) == GLFW_PRESS);
+    state.key[74] = (glfwGetKey(window, GLFW_KEY_HOME) == GLFW_PRESS);
+    state.key[75] = (glfwGetKey(window, GLFW_KEY_PAGE_UP) == GLFW_PRESS);
+    state.key[76] = (glfwGetKey(window, GLFW_KEY_DELETE) == GLFW_PRESS);
+    state.key[77] = (glfwGetKey(window, GLFW_KEY_END) == GLFW_PRESS);
+    state.key[78] = (glfwGetKey(window, GLFW_KEY_PAGE_DOWN) == GLFW_PRESS);
+    state.key[79] = (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS);
+    state.key[80] = (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS);
+    state.key[81] = (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS);
+    state.key[82] = (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS);
 
-    if (glfwGetKey(window, GLFW_KEY_F5) == GLFW_PRESS) {
-        state.key[5] = true;
-    }
-    else {
-        state.key[5] = false;
-    }
+    state.key[83] = (glfwGetKey(window, GLFW_KEY_NUM_LOCK) == GLFW_PRESS);
+    state.key[84] = (glfwGetKey(window, GLFW_KEY_KP_DIVIDE) == GLFW_PRESS);
+    state.key[85] = (glfwGetKey(window, GLFW_KEY_KP_MULTIPLY) == GLFW_PRESS);
+    state.key[86] = (glfwGetKey(window, GLFW_KEY_KP_SUBTRACT) == GLFW_PRESS);
+    state.key[87] = (glfwGetKey(window, GLFW_KEY_KP_ADD) == GLFW_PRESS);
+    state.key[88] = (glfwGetKey(window, GLFW_KEY_KP_EQUAL) == GLFW_PRESS);
+    state.key[89] = (glfwGetKey(window, GLFW_KEY_KP_DECIMAL) == GLFW_PRESS);
 
-    if (glfwGetKey(window, GLFW_KEY_F6) == GLFW_PRESS) {
-        state.key[6] = true;
-    }
-    else {
-        state.key[6] = false;
-    }
+    state.key[90] = (glfwGetKey(window, GLFW_KEY_KP_0) == GLFW_PRESS);
+    state.key[91] = (glfwGetKey(window, GLFW_KEY_KP_1) == GLFW_PRESS);
+    state.key[92] = (glfwGetKey(window, GLFW_KEY_KP_2) == GLFW_PRESS);
+    state.key[93] = (glfwGetKey(window, GLFW_KEY_KP_3) == GLFW_PRESS);
+    state.key[94] = (glfwGetKey(window, GLFW_KEY_KP_4) == GLFW_PRESS);
+    state.key[95] = (glfwGetKey(window, GLFW_KEY_KP_5) == GLFW_PRESS);
+    state.key[96] = (glfwGetKey(window, GLFW_KEY_KP_6) == GLFW_PRESS);
+    state.key[97] = (glfwGetKey(window, GLFW_KEY_KP_7) == GLFW_PRESS);
+    state.key[98] = (glfwGetKey(window, GLFW_KEY_KP_8) == GLFW_PRESS);
+    state.key[99] = (glfwGetKey(window, GLFW_KEY_KP_9) == GLFW_PRESS);
 
-    if (glfwGetKey(window, GLFW_KEY_F7) == GLFW_PRESS) {
-        state.key[7] = true;
-    }
-    else {
-        state.key[7] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_F8) == GLFW_PRESS) {
-        state.key[8] = true;
-    }
-    else {
-        state.key[8] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_F9) == GLFW_PRESS) {
-        state.key[9] = true;
-    }
-    else {
-        state.key[9] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_F10) == GLFW_PRESS) {
-        state.key[10] = true;
-    }
-    else {
-        state.key[10] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_F11) == GLFW_PRESS) {
-        state.key[11] = true;
-    }
-    else {
-        state.key[11] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_F12) == GLFW_PRESS) {
-        state.key[12] = true;
-    }
-    else {
-        state.key[12] = false;
-    }
-    
-    if (glfwGetKey(window, GLFW_KEY_PRINT_SCREEN) == GLFW_PRESS) {
-        state.key[13] = true;
-    }
-    else {
-        state.key[13] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_SCROLL_LOCK) == GLFW_PRESS) {
-        state.key[14] = true;
-    }
-    else {
-        state.key[14] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_PAUSE) == GLFW_PRESS) {
-        state.key[15] = true;
-    }
-    else {
-        state.key[15] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_GRAVE_ACCENT) == GLFW_PRESS) {
-        state.key[16] = true;
-    }
-    else {
-        state.key[16] = false;
-    }
-    
-    if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
-        state.key[17] = true;
-    }
-    else {
-        state.key[17] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
-        state.key[18] = true;
-    }
-    else {
-        state.key[18] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) {
-        state.key[19] = true;
-    }
-    else {
-        state.key[19] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS) {
-        state.key[20] = true;
-    }
-    else {
-        state.key[20] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS) {
-        state.key[21] = true;
-    }
-    else {
-        state.key[21] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_6) == GLFW_PRESS) {
-        state.key[22] = true;
-    }
-    else {
-        state.key[22] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_7) == GLFW_PRESS) {
-        state.key[23] = true;
-    }
-    else {
-        state.key[23] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_8) == GLFW_PRESS) {
-        state.key[24] = true;
-    }
-    else {
-        state.key[24] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_9) == GLFW_PRESS) {
-        state.key[25] = true;
-    }
-    else {
-        state.key[25] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_0) == GLFW_PRESS) {
-        state.key[26] = true;
-    }
-    else {
-        state.key[26] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_MINUS) == GLFW_PRESS) {
-        state.key[27] = true;
-    }
-    else {
-        state.key[27] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_EQUAL) == GLFW_PRESS) {
-        state.key[28] = true;
-    }
-    else {
-        state.key[28] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_BACKSPACE) == GLFW_PRESS) {
-        state.key[29] = true;
-    }
-    else {
-        state.key[29] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS) {
-        state.key[30] = true;
-    }
-    else {
-        state.key[30] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
-        state.key[31] = true;
-    }
-    else {
-        state.key[31] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-        state.key[32] = true;
-    }
-    else {
-        state.key[32] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
-        state.key[33] = true;
-    }
-    else {
-        state.key[33] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
-        state.key[34] = true;
-    }
-    else {
-        state.key[34] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
-        state.key[35] = true;
-    }
-    else {
-        state.key[35] = false;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS) {
-        state.key[36] = true;
-    }
-    else {
-        state.key[36] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS) {
-        state.key[37] = true;
-    }
-    else {
-        state.key[37] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) {
-        state.key[38] = true;
-    }
-    else {
-        state.key[38] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) {
-        state.key[39] = true;
-    }
-    else {
-        state.key[39] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS) {
-        state.key[40] = true;
-    }
-    else {
-        state.key[40] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_LEFT_BRACKET) == GLFW_PRESS) {
-        state.key[41] = true;
-    }
-    else {
-        state.key[41] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_RIGHT_BRACKET) == GLFW_PRESS) {
-        state.key[42] = true;
-    }
-    else {
-        state.key[42] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS) {
-        state.key[43] = true;
-    }
-    else {
-        state.key[43] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_CAPS_LOCK) == GLFW_PRESS) {
-        state.key[44] = true;
-    }
-    else {
-        state.key[44] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-        state.key[45] = true;
-    }
-    else {
-        state.key[45] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-        state.key[46] = true;
-    }
-    else {
-        state.key[46] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-        state.key[47] = true;
-    }
-    else {
-        state.key[47] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
-        state.key[48] = true;
-    }
-    else {
-        state.key[48] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
-        state.key[49] = true;
-    }
-    else {
-        state.key[49] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS) {
-        state.key[50] = true;
-    }
-    else {
-        state.key[50] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS) {
-        state.key[51] = true;
-    }
-    else {
-        state.key[51] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS) {
-        state.key[52] = true;
-    }
-    else {
-        state.key[52] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) {
-        state.key[53] = true;
-    }
-    else {
-        state.key[53] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_SEMICOLON) == GLFW_PRESS) {
-        state.key[54] = true;
-    }
-    else {
-        state.key[54] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_APOSTROPHE) == GLFW_PRESS) {
-        state.key[55] = true;
-    }
-    else {
-        state.key[55] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_BACKSLASH) == GLFW_PRESS) {
-        state.key[56] = true;
-    }
-    else {
-        state.key[56] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
-        state.key[57] = true;
-    }
-    else {
-        state.key[57] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) {
-        state.key[58] = true;
-    }
-    else {
-        state.key[58] = false;
-
-    }
-    if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS) {
-        state.key[59] = true;
-    }
-    else {
-        state.key[59] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
-        state.key[60] = true;
-    }
-    else {
-        state.key[60] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS) {
-        state.key[61] = true;
-    }
-    else {
-        state.key[61] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS) {
-        state.key[62] = true;
-    }
-    else {
-        state.key[62] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS) {
-        state.key[63] = true;
-    }
-    else {
-        state.key[63] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS) {
-        state.key[64] = true;
-    }
-    else {
-        state.key[64] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_COMMA) == GLFW_PRESS) {
-        state.key[65] = true;
-    }
-    else {
-        state.key[65] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_PERIOD) == GLFW_PRESS) {
-        state.key[66] = true;
-    }
-    else {
-        state.key[66] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_SLASH) == GLFW_PRESS) {
-        state.key[67] = true;
-    }
-    else {
-        state.key[67] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS) {
-        state.key[68] = true;
-    }
-    else {
-        state.key[68] = false;
-
-    }
-    if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) {
-        state.key[69] = true;
-    }
-    else {
-        state.key[69] = false;
-    }
-
-
-    if (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS) {
-        state.key[70] = true;
-    }
-    else {
-        state.key[70] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-        state.key[71] = true;
-    }
-    else {
-        state.key[71] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS) {
-        state.key[72] = true;
-    }
-    else {
-        state.key[72] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS) {
-        state.key[73] = true;
-    }
-    else {
-        state.key[73] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_INSERT) == GLFW_PRESS) {
-        state.key[74] = true;
-    }
-    else {
-        state.key[74] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_HOME) == GLFW_PRESS) {
-        state.key[75] = true;
-    }
-    else {
-        state.key[75] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_PAGE_UP) == GLFW_PRESS) {
-        state.key[76] = true;
-    }
-    else {
-        state.key[76] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_DELETE) == GLFW_PRESS) {
-        state.key[77] = true;
-    }
-    else {
-        state.key[77] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_END) == GLFW_PRESS) {
-        state.key[78] = true;
-    }
-    else {
-        state.key[78] = false;
-
-    }
-    if (glfwGetKey(window, GLFW_KEY_PAGE_DOWN) == GLFW_PRESS) {
-        state.key[79] = true;
-    }
-    else {
-        state.key[79] = false;
-    }
-
-
-
-    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
-        state.key[80] = true;
-    }
-    else {
-        state.key[80] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
-        state.key[81] = true;
-    }
-    else {
-        state.key[81] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
-        state.key[82] = true;
-    }
-    else {
-        state.key[82] = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
-        state.key[83] = true;
-    }
-    else {
-        state.key[83] = false;
-    }
-
-
-
-    /*
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-    if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
-    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
-    
-    if (glfwGetKey(window, GLFW_KEY_KP_0) == GLFW_PRESS)
-    if (glfwGetKey(window, GLFW_KEY_KP_ADD) == GLFW_PRESS)
-    if (glfwGetKey(window, GLFW_KEY_KP_9) == GLFW_PRESS)
-    if (glfwGetKey(window, GLFW_KEY_KP_1) == GLFW_PRESS)
-    if (glfwGetKey(window, GLFW_KEY_KP_7) == GLFW_PRESS)
-    if (glfwGetKey(window, GLFW_KEY_KP_3) == GLFW_PRESS)
-    if (glfwGetKey(window, GLFW_KEY_KP_8) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
-    if (glfwGetKey(window, GLFW_KEY_KP_6) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
-    if (glfwGetKey(window, GLFW_KEY_KP_4) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
-    if (glfwGetKey(window, GLFW_KEY_KP_2) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
-    */
+    state.mousekeys[0] = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS);
+    state.mousekeys[1] = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS);
+    state.mousekeys[2] = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_PRESS);
+    state.mousekeys[3] = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_3) == GLFW_PRESS);
+    state.mousekeys[4] = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_4) == GLFW_PRESS);
+    state.mousekeys[5] = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_5) == GLFW_PRESS);
+    state.mousekeys[6] = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_6) == GLFW_PRESS);
+    state.mousekeys[7] = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_7) == GLFW_PRESS);
+    state.mousekeys[8] = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_8) == GLFW_PRESS);
+    state.mousekeys[9] = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS);
+    state.mousekeys[10] = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
+    state.mousekeys[11] = (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LAST) == GLFW_PRESS);
 
 }
-
+//void scrollCallback(GLFWwindow* window, double xOffset, double yOffset) {
+//    gameCursor.y += (int)(yOffset);
+//}
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -1047,10 +472,20 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 }
 
 
+void fuzz(float* vertices, float frameStart) {
+    int odd = 0;
+    for (int i = 0; i < PIXELCOUNT; i++) {
 
 
+        odd = (i / (SCR_WIDTH / 4) + (int)(frameStart * 10) % 2) % 2;
+        loc3df randcol(randomInt(100) / (1000.f / (odd / 2.1f)), randomInt(100) / (1000.f / (odd / 2.1f)), randomInt(100) / (1000.f / (odd / 2.1f)));
+        vertices[i * 3] = randcol.x;
+        vertices[i * 3 + 1] = randcol.y;
+        vertices[i * 3 + 2] = randcol.z;
 
+    }
 
+}
 
 
 

@@ -151,22 +151,29 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="colorfuncs.cpp" />
+    <ClCompile Include="camera.cpp" />
     <ClCompile Include="gamemem.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="logger.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="chunk.cpp" />
+    <ClCompile Include="region.cpp" />
     <ClCompile Include="substance.cpp" />
     <ClCompile Include="voxels.cpp" />
     <ClCompile Include="voxfuncs.cpp" />
+    <ClCompile Include="world.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="chunk.h" />
-    <ClInclude Include="colorfuncs.h" />
     <ClInclude Include="gamemem.h" />
+    <ClInclude Include="camera.h" />
+    <ClInclude Include="imagefunc.h" />
+    <ClInclude Include="imap.h" />
     <ClInclude Include="logger.h" />
     <ClInclude Include="includes.h" />
+    <ClInclude Include="region.h" />
+    <ClInclude Include="session.h" />
+    <ClInclude Include="shaders.h" />
     <ClInclude Include="substance.h" />
     <ClInclude Include="voxels.h" />
     <ClInclude Include="voxfuncs.h" />
@@ -175,6 +182,12 @@
   <ItemGroup>
     <Text Include="old mains 1.txt" />
     <Text Include="substances.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="assets\background.bmp" />
+    <Image Include="assets\backgroundha.bmp" />
+    <Image Include="assets\blanket_wiz.bmp" />
+    <Image Include="assets\testewiz.bmp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

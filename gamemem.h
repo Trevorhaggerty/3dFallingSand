@@ -4,6 +4,10 @@
 
 namespace Game {
 
-	int createNewSave();
+
+	
+	void loadGame();
+	void saveGame();
+
 
 }
